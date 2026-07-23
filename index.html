@@ -285,6 +285,16 @@ button { cursor: pointer; border: none; background: none; }
     color: rgba(238, 241, 240, .55);
 }
 
+.saldo__rotulo { flex: 1; min-width: 0; }
+
+.saldo__version {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    color: rgba(238, 241, 240, .32);
+    flex: none;
+}
+
 .saldo__salir { padding: 4px; }
 
 .saldo__cifra {
@@ -852,6 +862,7 @@ button { cursor: pointer; border: none; background: none; }
         <div class="saldo__interior">
             <div class="saldo__fila">
                 <span class="saldo__rotulo" id="saldoRotulo">Saldo del grupo</span>
+                <span class="saldo__version" id="etiquetaVersion"></span>
                 <button class="saldo__salir" id="botonSalir">Salir</button>
             </div>
 
@@ -1028,6 +1039,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const LOCALE = 'es-ES';
 const CURRENCY = 'EUR';
+
+// Versión visible en la app. Súbela junto a la VERSION de sw.js
+// cada vez que cambies algo, y así sabrás de un vistazo si el
+// móvil está mostrando lo último o una copia guardada.
+const VERSION_APP = 'v6';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -2654,6 +2670,7 @@ function mostrarAcceso() {
 async function iniciar() {
     conectarEventos();
     pintarCategorias();
+    $('etiquetaVersion').textContent = VERSION_APP;
 
     const { data } = await sb.auth.getSession();
     estado.sesion = data.session;
@@ -2674,9 +2691,23 @@ async function iniciar() {
     });
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch((e) =>
-            console.warn('No se pudo registrar el service worker', e)
-        );
+        // Si llega una versión nueva, la app se recarga sola una vez.
+        let recargando = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (recargando) return;
+            recargando = true;
+            location.reload();
+        });
+
+        navigator.serviceWorker.register('sw.js')
+            .then((registro) => {
+                // Busca actualizaciones al arrancar y al volver a la app.
+                registro.update();
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') registro.update();
+                });
+            })
+            .catch((e) => console.warn('No se pudo registrar el service worker', e));
     }
 }
 
