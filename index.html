@@ -1138,7 +1138,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v9';
+const VERSION_APP = 'v10';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -2836,7 +2836,17 @@ function aplicarDictado(texto) {
 
 // Micrófono del navegador, cuando el dispositivo lo permite.
 const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
+const PISTA_MICRO = 'Di el importe, en qué fue y quién pagó. Se reparten solos.';
+const PISTA_TECLADO = 'Pulsa el micro del teclado y di el importe, en qué fue y quién pagó.';
+
 let escucha = null;
+let paradaAutomatica = null;
+
+function pararEscucha() {
+    if (escucha) {
+        try { escucha.stop(); } catch { /* ya estaba parada */ }
+    }
+}
 
 function prepararMicro() {
     const boton = $('botonMicro');
@@ -2844,41 +2854,75 @@ function prepararMicro() {
     if (!Reconocimiento) {
         // Sin API de voz, el micro del teclado sigue sirviendo.
         boton.classList.add('oculto');
-        $('pistaDictado').textContent =
-            'Pulsa el micro del teclado y di el importe, en qué fue y quién pagó.';
+        $('pistaDictado').textContent = PISTA_TECLADO;
         return;
     }
 
     boton.addEventListener('click', () => {
         if (escucha) {
-            escucha.stop();
+            pararEscucha();
             return;
         }
 
         escucha = new Reconocimiento();
         escucha.lang = 'es-ES';
-        escucha.interimResults = false;
+        // Continua: no se cierra en cuanto haces una pausa a mitad
+        // de frase, que era lo que cortaba el dictado antes de tiempo.
+        escucha.continuous = true;
+        // Provisionales: así ves en pantalla lo que va oyendo.
+        escucha.interimResults = true;
         escucha.maxAlternatives = 1;
 
-        escucha.onstart = () => boton.setAttribute('data-escuchando', 'true');
+        let acumulado = '';
+        let falloGrave = false;
+
+        escucha.onstart = () => {
+            boton.setAttribute('data-escuchando', 'true');
+            $('entradaDictado').value = '';
+            $('pistaDictado').textContent = 'Escuchando… toca el micro otra vez para parar.';
+            // Por si el navegador no cierra solo.
+            clearTimeout(paradaAutomatica);
+            paradaAutomatica = setTimeout(pararEscucha, 20000);
+        };
 
         escucha.onresult = (e) => {
-            const texto = e.results[0][0].transcript;
-            $('entradaDictado').value = texto;
-            aplicarDictado(texto);
+            let provisional = '';
+
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const trozo = e.results[i][0].transcript;
+                if (e.results[i].isFinal) acumulado += trozo + ' ';
+                else provisional += trozo;
+            }
+
+            $('entradaDictado').value = (acumulado + provisional).replace(/\s+/g, ' ').trim();
         };
 
         escucha.onerror = (e) => {
-            if (e.error === 'not-allowed') {
-                recado('Falta permiso del micrófono. Usa el micro del teclado.');
-            } else if (e.error !== 'aborted') {
-                recado('No he podido escuchar. Prueba con el micro del teclado.');
+            const fallo = e && e.error;
+            if (fallo === 'aborted') return;
+
+            if (fallo === 'not-allowed' || fallo === 'service-not-allowed') {
+                falloGrave = true;
+                recado('Sin permiso de micrófono. Revisa Ajustes o usa el micro del teclado.');
+            } else if (fallo === 'no-speech') {
+                recado('No he oído nada. Acerca el móvil y prueba otra vez.');
+            } else if (fallo === 'network') {
+                falloGrave = true;
+                recado('El dictado necesita conexión. Usa el micro del teclado.');
+            } else {
+                recado('El micro ha fallado. Puedes usar el del teclado.');
             }
         };
 
         escucha.onend = () => {
+            clearTimeout(paradaAutomatica);
             boton.removeAttribute('data-escuchando');
             escucha = null;
+            $('pistaDictado').textContent = PISTA_MICRO;
+
+            const texto = $('entradaDictado').value.trim();
+            if (texto) aplicarDictado(texto);
+            else if (!falloGrave) recado('No he captado nada. Prueba con el micro del teclado.');
         };
 
         try {
@@ -2886,6 +2930,7 @@ function prepararMicro() {
         } catch {
             escucha = null;
             boton.removeAttribute('data-escuchando');
+            recado('No he podido abrir el micrófono.');
         }
     });
 }
@@ -2996,6 +3041,7 @@ function abrirHojaGasto(id) {
     estado.editando = id || null;
     pintarSelectorGrupo();
     $('entradaDictado').value = '';
+    if (Reconocimiento) $('pistaDictado').textContent = PISTA_MICRO;
 
     const gasto = id ? estado.gastos.find((g) => String(g.id) === String(id)) : null;
 
@@ -3040,6 +3086,7 @@ function abrirHojaGasto(id) {
 }
 
 function cerrarHojaGasto() {
+    pararEscucha();
     $('veloGasto').classList.add('oculto');
     estado.editando = null;
 }
