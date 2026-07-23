@@ -795,8 +795,9 @@ button { cursor: pointer; border: none; background: none; }
 /* Lista de grupos dentro de la hoja de gestión */
 .ficha {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 6px 14px;
     padding: 13px 16px;
     margin-bottom: 8px;
     background: var(--carta);
@@ -805,7 +806,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 .ficha__nombre {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
     font-weight: 600;
     white-space: nowrap;
@@ -1107,6 +1108,11 @@ button { cursor: pointer; border: none; background: none; }
         <div id="previoImportar"></div>
 
         <button class="boton oculto" id="botonConfirmarImportar">Importar</button>
+
+        <button class="hoja__borrar oculto" id="botonDeshacerImport">
+            Borrar lo importado en este grupo
+        </button>
+
         <button class="boton boton--tenue" id="botonCerrarImportar">Cerrar</button>
     </div>
 </div>
@@ -1132,7 +1138,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v7';
+const VERSION_APP = 'v8';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -2199,7 +2205,74 @@ function abrirHojaImportar() {
         'La primera fila tiene que decir qué es cada columna; como mínimo, ' +
         'concepto e importe.';
 
+    pintarBotonDeshacer();
     $('veloImportar').classList.remove('oculto');
+}
+
+// Cuenta lo que entró por importación en el grupo activo.
+function importadosDelGrupo() {
+    const esImportado = (m) => String(m.client_id || '').startsWith('imp:');
+    return {
+        gastos: gastosDelGrupo().filter(esImportado),
+        liquidaciones: liquidacionesDelGrupo().filter(esImportado),
+    };
+}
+
+function pintarBotonDeshacer() {
+    const boton = $('botonDeshacerImport');
+    const { gastos, liquidaciones } = importadosDelGrupo();
+    const total = gastos.length + liquidaciones.length;
+
+    if (!total) {
+        boton.classList.add('oculto');
+        return;
+    }
+
+    boton.textContent = 'Borrar lo importado (' + total +
+        (total === 1 ? ' apunte)' : ' apuntes)');
+    boton.classList.remove('oculto');
+}
+
+async function deshacerImportacion() {
+    const g = grupo(estado.grupoActivo);
+    if (!g) return;
+
+    const { gastos, liquidaciones } = importadosDelGrupo();
+    const total = gastos.length + liquidaciones.length;
+    if (!total) return;
+
+    const suma = gastos.reduce((t, x) => t + Number(x.amount), 0);
+    const aviso = '¿Borrar los ' + total + ' apuntes importados de "' + g.name + '"? ' +
+        'Suman ' + formatoDinero(suma) + '. Lo que apuntasteis a mano no se toca. ' +
+        'No se puede deshacer.';
+
+    if (!confirm(aviso)) return;
+
+    if (!navigator.onLine) {
+        mostrarAviso($('avisoImportar'), 'Para borrar hace falta conexión.');
+        return;
+    }
+
+    const boton = $('botonDeshacerImport');
+    boton.disabled = true;
+
+    try {
+        const { error: e1 } = await sb.from('expenses').delete()
+            .eq('group_id', g.id).like('client_id', 'imp:%');
+        if (e1) throw e1;
+
+        const { error: e2 } = await sb.from('settlements').delete()
+            .eq('group_id', g.id).like('client_id', 'imp:%');
+        if (e2) throw e2;
+
+        $('veloImportar').classList.add('oculto');
+        recado(total + ' apuntes importados borrados');
+        await refrescar();
+    } catch (error) {
+        mostrarAviso($('avisoImportar'), traducirError(error));
+    } finally {
+        boton.disabled = false;
+    }
 }
 
 function pintarPrevio(r) {
@@ -2353,6 +2426,11 @@ function pintarListaGrupos() {
         renombrar.textContent = 'Renombrar';
         renombrar.addEventListener('click', () => renombrarGrupo(g));
 
+        const vaciar = document.createElement('button');
+        vaciar.className = 'ficha__accion ficha__accion--peligro';
+        vaciar.textContent = 'Vaciar';
+        vaciar.addEventListener('click', () => vaciarGrupo(g));
+
         const borrar = document.createElement('button');
         borrar.className = 'ficha__accion ficha__accion--peligro';
         borrar.textContent = 'Borrar';
@@ -2360,8 +2438,47 @@ function pintarListaGrupos() {
 
         ficha.appendChild(nombre);
         ficha.appendChild(renombrar);
+        ficha.appendChild(vaciar);
         ficha.appendChild(borrar);
         caja.appendChild(ficha);
+    }
+}
+
+// Deja el grupo sin gastos ni liquidaciones, pero el grupo se queda.
+async function vaciarGrupo(g) {
+    const gastos = estado.gastos.filter((x) => String(x.group_id) === String(g.id));
+    const liquidaciones = estado.liquidaciones.filter((x) => String(x.group_id) === String(g.id));
+    const total = gastos.length + liquidaciones.length;
+
+    if (!total) {
+        mostrarAviso($('avisoGrupos'), '"' + g.name + '" ya está vacío.');
+        return;
+    }
+
+    const suma = gastos.reduce((t, x) => t + Number(x.amount), 0);
+    const aviso = '¿Vaciar "' + g.name + '"? Se borran sus ' + total +
+        ' apuntes (' + formatoDinero(suma) + '). El grupo se queda, pero sin nada dentro. ' +
+        'No se puede deshacer.';
+
+    if (!confirm(aviso)) return;
+
+    if (!navigator.onLine) {
+        mostrarAviso($('avisoGrupos'), 'Para vaciar hace falta conexión.');
+        return;
+    }
+
+    try {
+        const { error: e1 } = await sb.from('expenses').delete().eq('group_id', g.id);
+        if (e1) throw e1;
+
+        const { error: e2 } = await sb.from('settlements').delete().eq('group_id', g.id);
+        if (e2) throw e2;
+
+        recado('"' + g.name + '" vaciado');
+        await refrescar();
+        pintarListaGrupos();
+    } catch (error) {
+        mostrarAviso($('avisoGrupos'), traducirError(error));
     }
 }
 
@@ -3078,6 +3195,7 @@ function conectarEventos() {
     $('botonAnalizar').addEventListener('click', analizarLoPegado);
     $('entradaTextoCSV').addEventListener('change', analizarLoPegado);
     $('botonConfirmarImportar').addEventListener('click', confirmarImportacion);
+    $('botonDeshacerImport').addEventListener('click', deshacerImportacion);
     $('botonCerrarImportar').addEventListener('click', () => $('veloImportar').classList.add('oculto'));
 
     $('barraNovedades').addEventListener('click', () => {
