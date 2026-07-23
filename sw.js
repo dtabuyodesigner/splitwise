@@ -5,7 +5,7 @@
 //  es lo que fuerza la actualización en los móviles.
 // ============================================================
 
-const VERSION = 'gastos-v11';
+const VERSION = 'gastos-v12';
 
 const ARCHIVOS = [
     './',
