@@ -1138,7 +1138,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v8';
+const VERSION_APP = 'v9';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -1919,7 +1919,8 @@ const COLUMNAS = {
     tipo:      ['tipo', 'type'],
     concepto:  ['concepto', 'descripcion', 'description', 'detalle', 'nombre', 'que', 'item'],
     categoria: ['categoria', 'category', 'tipo de gasto'],
-    pago:      ['pago', 'pagado por', 'quien pago', 'paid by', 'payer', 'quien'],
+    pago:      ['pago', 'pagador', 'pagadora', 'pagado por', 'quien pago', 'quien paga',
+                'paga', 'persona', 'paid by', 'payer', 'who paid', 'quien'],
     reparto:   ['reparto', 'split', 'division', 'reparticion'],
     importe:   ['importe', 'cantidad', 'coste', 'costo', 'precio', 'total',
                 'amount', 'cost', 'price', 'gasto'],
@@ -2036,6 +2037,33 @@ function mapearCabecera(fila) {
     return mapa;
 }
 
+// Red de seguridad: si la cabecera no dice cuál es la columna del
+// pagador, se busca una cuyos valores sean casi todos nombres
+// vuestros. Vale más esto que atribuirlo todo a quien importa.
+function buscarColumnaPagador(filas, mapa) {
+    const ocupadas = new Set(Object.values(mapa));
+    const total = filas.length - 1;
+    if (total < 1) return undefined;
+
+    for (let col = 0; col < filas[0].length; col++) {
+        if (ocupadas.has(col)) continue;
+
+        let aciertos = 0;
+        let conValor = 0;
+
+        for (let i = 1; i < filas.length; i++) {
+            const v = (filas[i][col] ?? '').trim();
+            if (!v) continue;
+            conValor++;
+            if (personaDesde(v)) aciertos++;
+        }
+
+        if (conValor >= 2 && aciertos / conValor >= 0.8) return col;
+    }
+
+    return undefined;
+}
+
 function personaDesde(bruto) {
     const t = sinTildes(bruto);
     if (!t) return null;
@@ -2088,7 +2116,9 @@ function categoriaPorConcepto(concepto) {
 
     for (const [categoria, pistas] of Object.entries(PISTAS_CATEGORIA)) {
         if (!CATEGORIES.includes(categoria)) continue;
-        if (pistas.some((p) => new RegExp('\\b' + sinTildes(p) + '\\b').test(t))) {
+        // El sufijo opcional deja pasar plurales ("alojamientos",
+        // "desayunos") sin que "bar" case con "Barajas".
+        if (pistas.some((p) => new RegExp('\\b' + sinTildes(p) + '(s|es)?\\b').test(t))) {
             return categoria;
         }
     }
@@ -2112,6 +2142,16 @@ function analizarCSV(texto) {
                    'al menos "Concepto" e "Importe". Exporta un CSV desde la app ' +
                    'para ver el formato exacto.',
         };
+    }
+
+    // Si no hay columna de pagador declarada, se intenta adivinar.
+    let pagadorAdivinado = false;
+    if (mapa.pago === undefined) {
+        const col = buscarColumnaPagador(filas, mapa);
+        if (col !== undefined) {
+            mapa.pago = col;
+            pagadorAdivinado = true;
+        }
     }
 
     const gastos = [];
@@ -2178,7 +2218,18 @@ function analizarCSV(texto) {
                         (fallos.length ? ' ' + fallos[0] : '') };
     }
 
-    return { gastos, liquidaciones, fallos, separador };
+    // Desglose por persona, para que se vea antes de confirmar.
+    const porPersona = estado.perfiles.map((p) => ({
+        nombre: p.display_name,
+        cuantos: gastos.filter((g) => g.paid_by === p.id).length,
+        suma: gastos.filter((g) => g.paid_by === p.id)
+                    .reduce((t, g) => t + g.amount, 0),
+    }));
+
+    const sinColumnaPagador = mapa.pago === undefined;
+
+    return { gastos, liquidaciones, fallos, separador, porPersona,
+             pagadorAdivinado, sinColumnaPagador };
 }
 
 let analisisActual = null;
@@ -2296,6 +2347,24 @@ function pintarPrevio(r) {
     html += '<p class="previo__nota">' + formatoDinero(total) + ' en total' +
             (r.liquidaciones.length ? ' · ' + r.liquidaciones.length + ' liquidación(es)' : '') +
             '</p>';
+
+    // Lo primero que hay que mirar: a quién se le atribuye cada euro.
+    html += '<ul class="previo__lista">';
+    for (const p of r.porPersona) {
+        html += '<li><strong>' + escapar(p.nombre) + '</strong>: ' + p.cuantos +
+                ' · ' + formatoDinero(p.suma) + '</li>';
+    }
+    html += '</ul>';
+
+    if (r.sinColumnaPagador) {
+        html += '<p class="previo__nota previo__fallos" style="margin-top:10px">' +
+                'No hay columna de pagador, así que todo se apunta a tu nombre. ' +
+                'Añade una columna «Pagador» si no fue así.</p>';
+    } else if (r.pagadorAdivinado) {
+        html += '<p class="previo__nota" style="margin-top:10px">' +
+                'La columna del pagador la he deducido por los nombres, ' +
+                'porque la cabecera no lo dejaba claro.</p>';
+    }
 
     if (muestra.length) {
         html += '<ul class="previo__lista">';
@@ -2567,14 +2636,16 @@ async function borrarGrupo(g, cuantos) {
 
 // Palabras que apuntan a una categoría sin nombrarla.
 const PISTAS_CATEGORIA = {
-    'súper':       ['supermercado', 'compra', 'mercadona', 'mercado', 'súper', 'super'],
+    'súper':       ['supermercado', 'compra', 'mercadona', 'lidl', 'mercado', 'súper', 'super'],
     'comer fuera': ['cena', 'cenar', 'comida', 'comer', 'desayuno', 'almuerzo',
-                    'restaurante', 'bar', 'café', 'cafe', 'copas', 'menú', 'menu'],
+                    'restaurante', 'bar', 'café', 'cafe', 'copas', 'menú', 'menu',
+                    'pizza', 'helado', 'bocadillo', 'cerveza', 'bollo', 'agua'],
     'alojamiento': ['hotel', 'apartamento', 'airbnb', 'hostal', 'noche', 'alojamiento'],
     'transporte':  ['taxi', 'tren', 'bus', 'autobús', 'autobus', 'metro', 'billete',
-                    'billetes', 'gasolina', 'peaje', 'parking', 'aparcamiento', 'vuelo'],
+                    'billetes', 'gasolina', 'peaje', 'parking', 'aparcamiento', 'vuelo',
+                    'autopista', 'viñeta', 'ferry', 'barco'],
     'ocio':        ['entradas', 'entrada', 'museo', 'cine', 'concierto', 'excursión',
-                    'excursion', 'visita', 'teatro'],
+                    'excursion', 'visita', 'teatro', 'tour', 'castillo', 'cueva'],
     'salud':       ['farmacia', 'médico', 'medico', 'medicinas'],
     'coche':       ['coche', 'taller', 'itv'],
     'casa':        ['luz', 'agua', 'internet', 'alquiler', 'ferretería', 'ferreteria'],
