@@ -368,6 +368,50 @@ button { cursor: pointer; border: none; background: none; }
     flex: none;
 }
 
+/* Aviso de lo que ha pasado desde la última vez. */
+.novedades {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 20px 0;
+    padding: 12px 14px;
+    background: var(--basalto);
+    color: var(--niebla);
+    border-radius: var(--r-s);
+    font-size: 14px;
+    text-align: left;
+    width: calc(100% - 40px);
+}
+
+.novedades__texto { flex: 1; }
+
+.novedades__cerrar {
+    flex: none;
+    color: rgba(238, 241, 240, .55);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+/* Acciones secundarias: compartir y exportar. */
+.utiles {
+    display: flex;
+    gap: 8px;
+    padding: 18px 20px 0;
+}
+
+.util {
+    padding: 9px 14px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: 99px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tiza);
+}
+.util:active { color: var(--basalto); }
+
 /* ---------- Lista ---------- */
 .lista {
     flex: 1;
@@ -760,7 +804,7 @@ button { cursor: pointer; border: none; background: none; }
 
     <p class="aviso oculto" id="avisoAcceso"></p>
 
-    <button class="boton boton--google" id="botonGoogle">
+    <button class="boton boton--google oculto" id="botonGoogle">
         <svg viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/>
             <path fill="#4285F4" d="M46.8 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.8c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7.2-10.2 7.2-17.4z"/>
@@ -770,7 +814,7 @@ button { cursor: pointer; border: none; background: none; }
         Continuar con Google
     </button>
 
-    <div class="separador">o con tu correo</div>
+    <div class="separador oculto" id="separadorGoogle">o con tu correo</div>
 
     <form id="formAcceso" autocomplete="on" novalidate>
         <div class="campo oculto" id="campoNombre">
@@ -828,6 +872,16 @@ button { cursor: pointer; border: none; background: none; }
     <div class="estado oculto" id="barraEstado">
         <span class="estado__punto"></span>
         <span id="textoEstado"></span>
+    </div>
+
+    <button class="novedades oculto" id="barraNovedades">
+        <span class="novedades__texto" id="textoNovedades"></span>
+        <span class="novedades__cerrar">Vale</span>
+    </button>
+
+    <div class="utiles oculto" id="utiles">
+        <button class="util" id="botonCompartir">Compartir balance</button>
+        <button class="util" id="botonExportar">Exportar CSV</button>
     </div>
 
     <main class="lista" id="lista"></main>
@@ -975,6 +1029,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const LOCALE = 'es-ES';
 const CURRENCY = 'EUR';
 
+// Ponlo en true cuando hayas configurado Google en Supabase
+// (Authentication → Providers → Google). Mientras esté en false,
+// el botón ni siquiera aparece, para no acabar en una página de error.
+const GOOGLE_ACTIVO = false;
+
 const CATEGORIES = [
     'súper', 'casa', 'coche', 'comer fuera', 'alojamiento',
     'transporte', 'ocio', 'viajes', 'salud', 'niños', 'otros',
@@ -1001,6 +1060,8 @@ const estado = {
     liquidaciones: [],
     cola: [],
     editando: null,
+    desdeVisita: null,
+    novedadesVistas: false,
     formulario: { pagador: null, reparto: 0.5, repartoLibre: 50 },
     modoAlta: false,
 };
@@ -1009,6 +1070,7 @@ const CLAVE_CACHE = 'gastos.cache';
 const CLAVE_COLA = 'gastos.cola';
 const CLAVE_GRUPO = 'gastos.grupo';
 const CLAVE_CORREO = 'gastos.correo';
+const CLAVE_VISITA = 'gastos.visita';
 
 // ------------------------------------------------------------
 //  Utilidades
@@ -1382,6 +1444,8 @@ function pintar() {
     pintarSaldo();
     pintarLista();
     pintarEstado();
+    pintarNovedades();
+    $('utiles').classList.toggle('oculto', !grupo(estado.grupoActivo));
 }
 
 function pintarGrupos() {
@@ -1565,6 +1629,170 @@ function pintarEstado() {
     }
 
     barra.classList.add('oculto');
+}
+
+// ------------------------------------------------------------
+//  Novedades desde la última visita
+//  No son notificaciones: el móvil no avisa con la app cerrada.
+//  Es un resumen de lo que ha metido el otro mientras no mirabas.
+// ------------------------------------------------------------
+function pintarNovedades() {
+    const barra = $('barraNovedades');
+
+    if (estado.novedadesVistas || !estado.desdeVisita || !estado.otro) {
+        barra.classList.add('oculto');
+        return;
+    }
+
+    const nuevos = [
+        ...estado.gastos.filter((g) => !g.pendiente && g.paid_by !== estado.yo?.id),
+        ...estado.liquidaciones.filter((l) => !l.pendiente && l.from_user !== estado.yo?.id),
+    ].filter((m) => m.created_at && m.created_at > estado.desdeVisita);
+
+    if (!nuevos.length) {
+        barra.classList.add('oculto');
+        return;
+    }
+
+    const suma = nuevos.reduce((t, m) => t + Number(m.amount || 0), 0);
+    const nombre = estado.otro.display_name;
+
+    $('textoNovedades').textContent = nuevos.length === 1
+        ? nombre + ' ha apuntado 1 gasto nuevo · ' + formatoDinero(suma)
+        : nombre + ' ha apuntado ' + nuevos.length + ' gastos nuevos · ' + formatoDinero(suma);
+
+    barra.classList.remove('oculto');
+}
+
+// ------------------------------------------------------------
+//  Compartir el balance
+// ------------------------------------------------------------
+function resumenTexto() {
+    const g = grupo(estado.grupoActivo);
+    if (!g) return '';
+
+    const gastos = gastosDelGrupo();
+    const total = gastos.reduce((t, x) => t + Number(x.amount), 0);
+
+    const lineas = ['Gastos · ' + g.name, ''];
+
+    for (const p of estado.perfiles) {
+        const puesto = gastos
+            .filter((x) => x.paid_by === p.id)
+            .reduce((t, x) => t + Number(x.amount), 0);
+        if (puesto > 0 || estado.perfiles.length <= 2) {
+            lineas.push(p.display_name + ' ha puesto ' + formatoDinero(puesto));
+        }
+    }
+
+    lineas.push('Total del grupo: ' + formatoDinero(total));
+    lineas.push('');
+
+    const saldo = calcularSaldo();
+    if (Math.abs(saldo) < 0.005) {
+        lineas.push('Estamos en paz.');
+    } else if (saldo > 0) {
+        lineas.push(estado.otro.display_name + ' → ' + estado.yo.display_name +
+                    ': ' + formatoDinero(Math.abs(saldo)));
+    } else {
+        lineas.push(estado.yo.display_name + ' → ' + estado.otro.display_name +
+                    ': ' + formatoDinero(Math.abs(saldo)));
+    }
+
+    return lineas.join('\n');
+}
+
+async function compartirBalance() {
+    const texto = resumenTexto();
+    if (!texto) {
+        recado('Elige antes un grupo');
+        return;
+    }
+
+    // La hoja de compartir de iOS ya ofrece WhatsApp, Mensajes y copiar.
+    if (navigator.share) {
+        try {
+            await navigator.share({ text: texto });
+            return;
+        } catch (e) {
+            if (e && e.name === 'AbortError') return;
+        }
+    }
+
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+}
+
+// ------------------------------------------------------------
+//  Exportar a CSV
+//  Con punto y coma y coma decimal, que es lo que espera
+//  el Excel en español.
+// ------------------------------------------------------------
+function campoCSV(valor) {
+    const t = String(valor ?? '');
+    return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+function importeCSV(n) {
+    return Number(n).toFixed(2).replace('.', ',');
+}
+
+function construirCSV() {
+    const filas = [['Fecha', 'Tipo', 'Concepto', 'Categoría', 'Pagó', 'Reparto', 'Importe']];
+
+    const movimientos = [
+        ...gastosDelGrupo().map((g) => ({ ...g, tipo: 'Gasto', fecha: g.spent_on })),
+        ...liquidacionesDelGrupo().map((l) => ({ ...l, tipo: 'Liquidación', fecha: l.settled_on })),
+    ].sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
+
+    for (const m of movimientos) {
+        if (m.tipo === 'Gasto') {
+            const s = Number(m.payer_share);
+            const reparto = s === 0.5 ? 'a medias'
+                : s === 1 ? 'solo ' + perfil(m.paid_by).display_name
+                : s === 0 ? 'solo ' + perfil(otroId(m.paid_by)).display_name
+                : Math.round(s * 100) + '/' + Math.round((1 - s) * 100);
+
+            filas.push([m.fecha, 'Gasto', m.description, m.category,
+                        perfil(m.paid_by).display_name, reparto, importeCSV(m.amount)]);
+        } else {
+            filas.push([m.fecha, 'Liquidación',
+                        'Pago a ' + perfil(m.to_user).display_name,
+                        m.note || '', perfil(m.from_user).display_name, '',
+                        importeCSV(m.amount)]);
+        }
+    }
+
+    const total = gastosDelGrupo().reduce((t, x) => t + Number(x.amount), 0);
+    filas.push([]);
+    filas.push(['', '', '', '', '', 'Total gastos', importeCSV(total)]);
+
+    return filas.map((f) => f.map(campoCSV).join(';')).join('\r\n');
+}
+
+function exportarCSV() {
+    const g = grupo(estado.grupoActivo);
+    if (!g) {
+        recado('Elige antes un grupo');
+        return;
+    }
+
+    const nombre = 'gastos-' +
+        g.name.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, '-').replace(/^-|-$/g, '') +
+        '-' + hoyISO() + '.csv';
+
+    // El BOM hace que Excel respete las tildes.
+    const blob = new Blob(['\uFEFF' + construirCSV()], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombre;
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    recado('CSV generado');
 }
 
 // ------------------------------------------------------------
@@ -2307,7 +2535,12 @@ function escucharCambios() {
 //  Arranque
 // ------------------------------------------------------------
 function conectarEventos() {
-    $('botonGoogle').addEventListener('click', accederConGoogle);
+    if (GOOGLE_ACTIVO) {
+        $('botonGoogle').classList.remove('oculto');
+        $('separadorGoogle').classList.remove('oculto');
+        $('botonGoogle').addEventListener('click', accederConGoogle);
+    }
+
     $('formAcceso').addEventListener('submit', (e) => {
         e.preventDefault();
         acceder();
@@ -2320,6 +2553,14 @@ function conectarEventos() {
     $('botonSalir').addEventListener('click', salir);
     $('botonNuevoGasto').addEventListener('click', () => abrirHojaGasto(null));
     $('botonLiquidar').addEventListener('click', abrirHojaLiquidar);
+
+    $('botonCompartir').addEventListener('click', compartirBalance);
+    $('botonExportar').addEventListener('click', exportarCSV);
+
+    $('barraNovedades').addEventListener('click', () => {
+        estado.novedadesVistas = true;
+        pintarNovedades();
+    });
 
     // Al terminar de dictar (o al salir del campo) se reparten los datos.
     $('entradaDictado').addEventListener('change', (e) => aplicarDictado(e.target.value));
@@ -2374,6 +2615,13 @@ function conectarEventos() {
 async function entrarEnLaApp() {
     $('pantallaAcceso').classList.add('oculto');
     $('pantallaApp').classList.remove('oculto');
+
+    // Se apunta cuándo fue la visita anterior antes de sobrescribirla,
+    // para poder contar lo que ha entrado mientras tanto.
+    try {
+        estado.desdeVisita = localStorage.getItem(CLAVE_VISITA);
+        localStorage.setItem(CLAVE_VISITA, new Date().toISOString());
+    } catch {}
 
     pintarCategorias();
     leerCola();
