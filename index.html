@@ -1138,7 +1138,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v10';
+const VERSION_APP = 'v11';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -2675,7 +2675,9 @@ function interpretarDictado(bruto) {
     // --- Importe ---
     const patronesImporte = [
         /(\d+)\s*(?:euros?|€)\s*(?:con|y)\s*(\d{1,2})\b/,
+        /(\d+)\s*(?:con|y)\s*(\d{1,2})\s*(?:c[eé]ntimos?)?\b/,
         /(\d+)\s*[.,]\s*(\d{1,2})\b/,
+        /^(\d+)\s+(\d{2})\b/,
         /(\d+)\s*(?:euros?|€)/,
         /\b(\d+)\b/,
     ];
@@ -2710,20 +2712,66 @@ function interpretarDictado(bruto) {
     // así que el cierre se hace con un "no viene otra letra".
     const FIN = '(?![a-záéíóúüñ])';
 
-    const yoPague = resto.match(new RegExp('\\b(pagu[eé]|he pagado|pago yo|invito yo|invit[eé])' + FIN, 'i'));
-    if (yoPague) {
+    // Todas las formas de decirlo que se me ocurren: pagó, ha pagado,
+    // lo puso, invitó… El pronombre y el auxiliar son opcionales.
+    const PRON = '(?:(?:lo|la|los|las|le|se)\\s+)?';
+    const AUX = '(?:(?:ha|han|he|hemos|habia|había)\\s+)?';
+    const VERBO = '(?:pag[oóa]|pagu[eé]|pagado|pagaron|invit[oóaé]|invito|puso|puse|pusimos|pone|pongo|puesto)';
+
+    const yoPague = resto.match(new RegExp(
+        '\\b' + PRON + AUX + '(?:pagu[eé]|puse|invit[eé]|pagado|puesto)(?:\\s+yo)?' + FIN, 'i'
+    )) || resto.match(/\b(pago yo|pongo yo|invito yo|corre de mi cuenta)\b/i);
+
+    // "pagué" y "pagado" solo cuentan como míos si no hay un nombre
+    // pegado al verbo, ni detrás ("pagado Pilar") ni delante
+    // ("Pilar lo ha pagado").
+    const nombreJunto = estado.perfiles.some((p) => {
+        const n = escaparRegex(p.display_name);
+        return new RegExp('\\b' + VERBO + '\\s+' + n + FIN, 'i').test(resto)
+            || new RegExp('\\b' + n + '\\s+' + PRON + AUX + VERBO + FIN, 'i').test(resto);
+    });
+
+    if (yoPague && !nombreJunto) {
         r.pagador = estado.yo?.id;
         resto = quitarFragmento(resto, yoPague[0]);
+        resto = resto.replace(/\byo\b/gi, ' ');
     } else {
+        let encontrado = null;
+
         for (const p of estado.perfiles) {
             const n = escaparRegex(p.display_name);
-            const detras = resto.match(new RegExp('\\b(pag[oó]|paga|invit[oó])\\s+' + n + FIN, 'i'));
-            const delante = resto.match(new RegExp('\\b' + n + '\\s+(pag[oó]|paga|invit[oó])' + FIN, 'i'));
-            const encontrado = detras || delante;
+
+            // "lo ha pagado Pilar" · "pagó Pilar" · "invitó Pilar"
+            const detras = resto.match(new RegExp(
+                '\\b' + PRON + AUX + VERBO + '\\s+' + n + FIN, 'i'));
+
+            // "Pilar lo ha pagado" · "Pilar paga"
+            const delante = resto.match(new RegExp(
+                '\\b' + n + '\\s+' + PRON + AUX + VERBO + FIN, 'i'));
+
+            // "a cargo de Pilar" · "de parte de Pilar"
+            const rodeo = resto.match(new RegExp(
+                '\\b(?:a cargo de|de parte de|por parte de|cuenta de)\\s+' + n + FIN, 'i'));
+
+            encontrado = detras || delante || rodeo;
             if (encontrado) {
                 r.pagador = p.id;
                 resto = quitarFragmento(resto, encontrado[0]);
                 break;
+            }
+        }
+
+        // Último recurso: un nombre suelto al final, como en
+        // "60 gasolina Pilar". Es como se habla de verdad.
+        if (!encontrado) {
+            for (const p of estado.perfiles) {
+                const n = escaparRegex(p.display_name);
+                const alFinal = resto.match(new RegExp('\\s' + n + '\\s*$', 'i'));
+                if (alFinal) {
+                    r.pagador = p.id;
+                    resto = resto.replace(new RegExp('\\s' + n + '\\s*$', 'i'), ' ');
+                    break;
+                }
             }
         }
     }
@@ -2751,14 +2799,20 @@ function interpretarDictado(bruto) {
     }
 
     // Restos de la palabra "pagó" sin nombre detrás.
-    resto = resto.replace(new RegExp('\\b(pag[oó]|paga|pagu[eé])' + FIN, 'gi'), ' ');
+    // Barrido de restos: verbos de pago sueltos y un nombre que
+    // haya quedado colgando al final.
+    resto = resto.replace(new RegExp('\\b' + PRON + AUX + VERBO + FIN, 'gi'), ' ');
+    for (const p of estado.perfiles) {
+        resto = resto.replace(
+            new RegExp('\\s' + escaparRegex(p.display_name) + '\\s*$', 'i'), ' ');
+    }
     resto = resto.replace(/\byo\b/gi, ' ');
 
     // --- Categoría ---
     const limpioBajo = resto.toLowerCase();
     for (const [categoria, pistas] of Object.entries(PISTAS_CATEGORIA)) {
         if (!CATEGORIES.includes(categoria)) continue;
-        if (pistas.some((pista) => new RegExp('\\b' + escaparRegex(pista) + FIN, 'i').test(limpioBajo))) {
+        if (pistas.some((pista) => new RegExp('\\b' + escaparRegex(pista) + '(s|es)?' + FIN, 'i').test(limpioBajo))) {
             r.categoria = categoria;
             break;
         }
@@ -2770,11 +2824,25 @@ function interpretarDictado(bruto) {
     }
 
     // --- Concepto: lo que sobra ---
-    let concepto = resto
-        .replace(/\s+/g, ' ')
-        .replace(/^[\s,.;:·-]+|[\s,.;:·-]+$/g, '')
-        .replace(/^(de|en|para|por|y|el|la|los|las)\s+/i, '')
-        .trim();
+    let concepto = resto.replace(/\s+/g, ' ').trim();
+
+    // Se recortan por los bordes las palabras que quedan huérfanas
+    // ("de", "lo", "y"…), pero nunca por dentro, para no romper
+    // cosas como "Cena y bollos".
+    const RELLENO = 'lo|la|los|las|le|se|que|y|de|del|en|por|para|el|un|una|' +
+                    'ha|han|he|hemos|yo|con|a|al|eso|esto';
+    const porDelante = new RegExp('^(?:' + RELLENO + ')\\b[\\s,.;:·-]*', 'i');
+    const porDetras  = new RegExp('[\\s,.;:·-]*\\b(?:' + RELLENO + ')$', 'i');
+
+    let anterior;
+    do {
+        anterior = concepto;
+        concepto = concepto
+            .replace(/^[\s,.;:·-]+|[\s,.;:·-]+$/g, '')
+            .replace(porDelante, '')
+            .replace(porDetras, '')
+            .trim();
+    } while (concepto !== anterior && concepto);
 
     if (concepto) {
         r.concepto = concepto.charAt(0).toUpperCase() + concepto.slice(1);
