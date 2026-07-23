@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Gastos</title>
+
+<meta name="description" content="Gastos compartidos de casa.">
+<meta name="theme-color" content="#14201F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<link rel="manifest" href="manifest.json">
+
+<!-- Icono incrustado: no hace falta subir ningún PNG. -->
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=">
+<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,600;12..96,75..100,800&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   FICHAS DE DISEÑO
+   Paleta tomada del monte de Anaga: bruma, basalto húmedo,
+   laurisilva y buganvilla. Los dos últimos no decoran:
+   identifican a cada persona en toda la app.
+   ============================================================ */
+:root {
+    --niebla:      #EEF1F0;
+    --carta:       #FFFFFF;
+    --basalto:     #14201F;
+    --tiza:        #6F817D;
+    --linea:       #DDE3E1;
+
+    --laurel:      #2F6F5E;
+    --buganvilla:  #8E3B5B;
+    --buganvilla-piel: #F6E6EB;
+
+    --display: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif;
+    --texto:   'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    --r-s: 10px;
+    --r-m: 16px;
+    --r-l: 24px;
+
+    --sombra: 0 1px 2px rgba(20, 32, 31, .05), 0 8px 24px rgba(20, 32, 31, .06);
+    --abajo: env(safe-area-inset-bottom, 0px);
+    --arriba: env(safe-area-inset-top, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overscroll-behavior-y: none;
+}
+
+body {
+    font-family: var(--texto);
+    background: var(--niebla);
+    color: var(--basalto);
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+button { cursor: pointer; border: none; background: none; }
+
+:focus-visible {
+    outline: 2px solid var(--basalto);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.oculto { display: none !important; }
+
+.cifra { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+.rotulo {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--tiza);
+}
+
+/* ---------- Acceso ---------- */
+.acceso {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 32px 24px calc(32px + var(--abajo));
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.acceso__marca {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(44px, 15vw, 64px);
+    line-height: .95;
+    letter-spacing: -.03em;
+    margin: 0 0 8px;
+}
+
+.acceso__pie {
+    color: var(--tiza);
+    margin: 0 0 40px;
+    max-width: 30ch;
+}
+
+.acceso__fiel {
+    display: flex;
+    height: 6px;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 40px;
+}
+.acceso__fiel span { flex: 1; }
+.acceso__fiel span:first-child { background: var(--laurel); }
+.acceso__fiel span:last-child  { background: var(--buganvilla); }
+
+.campo { margin-bottom: 16px; }
+
+.campo > label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--tiza);
+}
+
+.campo > input,
+.campo > select {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-s);
+    appearance: none;
+}
+
+.campo > input:focus,
+.campo > select:focus {
+    outline: none;
+    border-color: var(--basalto);
+}
+
+.boton {
+    width: 100%;
+    padding: 16px;
+    background: var(--basalto);
+    color: var(--niebla);
+    border-radius: var(--r-s);
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: opacity .15s ease;
+}
+.boton:active { opacity: .8; }
+.boton[disabled] { opacity: .45; cursor: default; }
+
+.boton--tenue {
+    background: transparent;
+    color: var(--tiza);
+    font-weight: 500;
+    padding: 12px;
+}
+
+.aviso {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border-radius: var(--r-s);
+    background: var(--buganvilla-piel);
+    color: var(--buganvilla);
+    font-size: 14px;
+}
+
+/* ---------- Estructura ---------- */
+.app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.saldo {
+    padding: calc(24px + var(--arriba)) 24px 24px;
+    background: var(--basalto);
+    color: var(--niebla);
+    border-radius: 0 0 var(--r-l) var(--r-l);
+}
+
+.saldo__fila {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.saldo__rotulo,
+.saldo__salir {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: rgba(238, 241, 240, .55);
+}
+
+.saldo__salir { padding: 4px; }
+
+.saldo__cifra {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(52px, 17vw, 76px);
+    line-height: .92;
+    letter-spacing: -.035em;
+    margin: 0;
+    transition: color .3s ease;
+}
+
+.saldo__frase {
+    margin: 10px 0 0;
+    font-size: 15px;
+    color: rgba(238, 241, 240, .75);
+}
+.saldo__frase strong { color: var(--niebla); font-weight: 600; }
+
+/* Fiel de la balanza: se inclina hacia quien tiene saldo a favor. */
+.fiel {
+    position: relative;
+    height: 8px;
+    margin-top: 22px;
+    background: rgba(238, 241, 240, .12);
+    border-radius: 99px;
+}
+
+.fiel__barra {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    border-radius: 99px;
+    transition: width .45s cubic-bezier(.22, 1, .36, 1),
+                left .45s cubic-bezier(.22, 1, .36, 1),
+                background-color .3s ease;
+}
+
+.fiel__centro {
+    position: absolute;
+    left: 50%;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    margin-left: -1px;
+    background: rgba(238, 241, 240, .5);
+    border-radius: 99px;
+}
+
+.fiel__nombres {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgba(238, 241, 240, .45);
+}
+
+.estado {
+    margin: 12px 20px 0;
+    padding: 10px 14px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-s);
+    font-size: 13px;
+    color: var(--tiza);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.estado__punto {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: var(--buganvilla);
+    flex: none;
+}
+
+/* ---------- Lista ---------- */
+.lista {
+    flex: 1;
+    padding: 24px 20px calc(120px + var(--abajo));
+}
+
+.lista__dia {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 26px 4px 10px;
+}
+.lista__dia:first-child { margin-top: 0; }
+.lista__dia::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--linea);
+}
+
+.gasto {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: var(--carta);
+    border-radius: var(--r-m);
+    border-left: 4px solid var(--linea);
+    box-shadow: var(--sombra);
+    transition: transform .12s ease;
+}
+.gasto:active { transform: scale(.985); }
+
+.gasto[data-color="laurel"]     { border-left-color: var(--laurel); }
+.gasto[data-color="buganvilla"] { border-left-color: var(--buganvilla); }
+
+.gasto__cuerpo { flex: 1; min-width: 0; }
+
+.gasto__concepto {
+    display: block;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gasto__meta {
+    display: block;
+    font-size: 13px;
+    color: var(--tiza);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gasto__importe {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: -.02em;
+    flex: none;
+}
+
+.gasto--liquidacion { border-left-style: dotted; }
+.gasto--pendiente { opacity: .6; }
+
+.vacio {
+    text-align: center;
+    padding: 56px 24px;
+    color: var(--tiza);
+}
+.vacio__titulo {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--basalto);
+    margin: 0 0 6px;
+    letter-spacing: -.02em;
+}
+.vacio p { margin: 0; }
+
+/* ---------- Acciones ---------- */
+.acciones {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    gap: 10px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 14px 20px calc(14px + var(--abajo));
+    background: linear-gradient(to top, var(--niebla) 60%, rgba(238, 241, 240, 0));
+}
+
+.acciones__principal {
+    flex: 1;
+    padding: 17px;
+    background: var(--basalto);
+    color: var(--niebla);
+    border-radius: 99px;
+    font-weight: 600;
+    box-shadow: var(--sombra);
+}
+.acciones__principal:active { opacity: .85; }
+
+.acciones__secundario {
+    padding: 17px 22px;
+    background: var(--carta);
+    color: var(--basalto);
+    border: 1px solid var(--linea);
+    border-radius: 99px;
+    font-weight: 600;
+    box-shadow: var(--sombra);
+}
+
+/* ---------- Hojas ---------- */
+.velo {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(20, 32, 31, .45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: aparecer .2s ease;
+}
+
+@keyframes aparecer { from { opacity: 0; } }
+@keyframes subir { from { transform: translateY(100%); } }
+
+.hoja {
+    width: 100%;
+    max-width: 560px;
+    max-height: 92dvh;
+    overflow-y: auto;
+    background: var(--niebla);
+    border-radius: var(--r-l) var(--r-l) 0 0;
+    padding: 10px 24px calc(28px + var(--abajo));
+    animation: subir .3s cubic-bezier(.22, 1, .36, 1);
+}
+
+.hoja__asa {
+    width: 38px;
+    height: 4px;
+    border-radius: 99px;
+    background: var(--linea);
+    margin: 0 auto 18px;
+}
+
+.hoja__titulo {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -.03em;
+    margin: 0 0 20px;
+}
+
+.importe {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-m);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+}
+
+.importe__moneda {
+    font-family: var(--display);
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--tiza);
+}
+
+.importe__campo {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: none;
+    font-family: var(--display);
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    padding: 0;
+    min-width: 0;
+}
+.importe__campo:focus { outline: none; }
+.importe__campo::placeholder { color: var(--linea); }
+
+.opciones {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.opciones--envolver { flex-wrap: wrap; }
+
+.opcion {
+    flex: 1;
+    padding: 13px 10px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-s);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.opcion[aria-pressed="true"] {
+    background: var(--basalto);
+    border-color: var(--basalto);
+    color: var(--niebla);
+}
+
+.opcion[data-color="laurel"][aria-pressed="true"] {
+    background: var(--laurel);
+    border-color: var(--laurel);
+}
+
+.opcion[data-color="buganvilla"][aria-pressed="true"] {
+    background: var(--buganvilla);
+    border-color: var(--buganvilla);
+}
+
+.pareja { display: flex; gap: 12px; }
+.pareja > .campo { flex: 1; }
+
+.hoja__borrar {
+    width: 100%;
+    padding: 14px;
+    margin-top: 6px;
+    color: var(--buganvilla);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.hoja__resumen {
+    padding: 14px 16px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-m);
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: var(--tiza);
+}
+.hoja__resumen strong {
+    display: block;
+    font-family: var(--display);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    color: var(--basalto);
+    margin-bottom: 2px;
+}
+
+.recado {
+    position: fixed;
+    left: 50%;
+    bottom: calc(96px + var(--abajo));
+    transform: translateX(-50%);
+    z-index: 40;
+    padding: 11px 20px;
+    background: var(--basalto);
+    color: var(--niebla);
+    border-radius: 99px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: var(--sombra);
+    animation: aparecer .2s ease;
+    max-width: calc(100vw - 40px);
+    text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .001ms !important;
+        transition-duration: .001ms !important;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ============================================================
+     ACCESO
+     ============================================================ -->
+<section class="acceso oculto" id="pantallaAcceso">
+    <h1 class="acceso__marca">Gastos<br>de casa</h1>
+    <p class="acceso__pie">Lo que pone cada uno y lo que queda por saldar.</p>
+    <div class="acceso__fiel" aria-hidden="true"><span></span><span></span></div>
+
+    <p class="aviso oculto" id="avisoAcceso"></p>
+
+    <div class="campo oculto" id="campoNombre">
+        <label for="entradaNombre">Tu nombre</label>
+        <input type="text" id="entradaNombre" autocomplete="name" placeholder="Dani">
+    </div>
+
+    <div class="campo">
+        <label for="entradaCorreo">Correo</label>
+        <input type="email" id="entradaCorreo" autocomplete="email" inputmode="email" placeholder="tucorreo@ejemplo.com">
+    </div>
+
+    <div class="campo">
+        <label for="entradaClave">Contraseña</label>
+        <input type="password" id="entradaClave" autocomplete="current-password" placeholder="••••••••">
+    </div>
+
+    <button class="boton" id="botonAcceder">Entrar</button>
+    <button class="boton boton--tenue" id="botonCambiarModo">Crear una cuenta</button>
+</section>
+
+<!-- ============================================================
+     APLICACIÓN
+     ============================================================ -->
+<div class="app oculto" id="pantallaApp">
+
+    <header class="saldo">
+        <div class="saldo__fila">
+            <span class="saldo__rotulo">Saldo entre vosotros</span>
+            <button class="saldo__salir" id="botonSalir">Salir</button>
+        </div>
+
+        <p class="saldo__cifra cifra" id="saldoCifra">0,00 €</p>
+        <p class="saldo__frase" id="saldoFrase">Cargando…</p>
+
+        <div class="fiel" id="fiel">
+            <div class="fiel__barra" id="fielBarra"></div>
+            <div class="fiel__centro"></div>
+        </div>
+        <div class="fiel__nombres">
+            <span id="fielIzquierda">—</span>
+            <span id="fielDerecha">—</span>
+        </div>
+    </header>
+
+    <div class="estado oculto" id="barraEstado">
+        <span class="estado__punto"></span>
+        <span id="textoEstado"></span>
+    </div>
+
+    <main class="lista" id="lista"></main>
+
+    <div class="acciones">
+        <button class="acciones__principal" id="botonNuevoGasto">Añadir gasto</button>
+        <button class="acciones__secundario" id="botonLiquidar">Saldar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: GASTO
+     ============================================================ -->
+<div class="velo oculto" id="veloGasto">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloGasto">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloGasto">Nuevo gasto</h2>
+
+        <p class="aviso oculto" id="avisoGasto"></p>
+
+        <div class="importe">
+            <span class="importe__moneda">€</span>
+            <input type="text" class="importe__campo cifra" id="entradaImporte"
+                   inputmode="decimal" placeholder="0,00" aria-label="Importe">
+        </div>
+
+        <div class="campo">
+            <label for="entradaConcepto">En qué</label>
+            <input type="text" id="entradaConcepto" placeholder="Compra del súper">
+        </div>
+
+        <span class="rotulo">Quién pagó</span>
+        <div class="opciones" id="opcionesPagador"></div>
+
+        <span class="rotulo">Cómo se reparte</span>
+        <div class="opciones opciones--envolver" id="opcionesReparto"></div>
+
+        <div class="pareja">
+            <div class="campo">
+                <label for="entradaCategoria">Categoría</label>
+                <select id="entradaCategoria"></select>
+            </div>
+            <div class="campo">
+                <label for="entradaFecha">Fecha</label>
+                <input type="date" id="entradaFecha">
+            </div>
+        </div>
+
+        <button class="boton" id="botonGuardarGasto">Guardar gasto</button>
+        <button class="hoja__borrar oculto" id="botonBorrarGasto">Borrar este gasto</button>
+        <button class="boton boton--tenue" id="botonCerrarGasto">Cancelar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: LIQUIDAR
+     ============================================================ -->
+<div class="velo oculto" id="veloLiquidar">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloLiquidar">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloLiquidar">Saldar cuentas</h2>
+
+        <p class="aviso oculto" id="avisoLiquidar"></p>
+
+        <div class="hoja__resumen" id="resumenLiquidar"></div>
+
+        <div class="importe">
+            <span class="importe__moneda">€</span>
+            <input type="text" class="importe__campo cifra" id="entradaImporteLiquidar"
+                   inputmode="decimal" placeholder="0,00" aria-label="Importe a saldar">
+        </div>
+
+        <div class="campo">
+            <label for="entradaNotaLiquidar">Nota</label>
+            <input type="text" id="entradaNotaLiquidar" placeholder="Bizum">
+        </div>
+
+        <button class="boton" id="botonGuardarLiquidar">Registrar el pago</button>
+        <button class="boton boton--tenue" id="botonCerrarLiquidar">Cancelar</button>
+    </div>
+</div>
+
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ============================================================
+//  ▼▼▼  LO ÚNICO QUE TIENES QUE EDITAR  ▼▼▼
+//  Los dos valores están en Supabase → Project Settings → Data API.
+// ============================================================
+
+const SUPABASE_URL      = 'https://cmkzcvfjgrgxwqjimtxa.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNta3pjdmZqZ3JneHdxamltdHhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NzU5NzAsImV4cCI6MjEwMDM1MTk3MH0.epSiwj0MO9WWfqETVoEt2E_ijNSzi4x0d-TmgDhAWhQ';
+
+// ============================================================
+//  ▲▲▲  A PARTIR DE AQUÍ NO HACE FALTA TOCAR NADA  ▲▲▲
+// ============================================================
+
+const LOCALE = 'es-ES';
+const CURRENCY = 'EUR';
+
+const CATEGORIES = [
+    'súper', 'casa', 'coche', 'comer fuera',
+    'ocio', 'viajes', 'salud', 'niños', 'otros',
+];
+
+// El saldo con el que el fiel de la balanza llega al extremo.
+const TOPE_FIEL = 300;
+
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true },
+});
+
+// ------------------------------------------------------------
+//  Estado
+// ------------------------------------------------------------
+const estado = {
+    sesion: null,
+    yo: null,
+    otro: null,
+    perfiles: [],
+    gastos: [],
+    liquidaciones: [],
+    cola: [],
+    editando: null,
+    formulario: { pagador: null, reparto: 0.5, repartoLibre: 50 },
+    modoAlta: false,
+};
+
+const CLAVE_CACHE = 'gastos.cache';
+const CLAVE_COLA = 'gastos.cola';
+
+// ------------------------------------------------------------
+//  Utilidades
+// ------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+
+const dinero = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
+const diaLargo = new Intl.DateTimeFormat(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+
+function formatoDinero(n) {
+    return dinero.format(Number(n) || 0);
+}
+
+function hoyISO() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+}
+
+function tituloDia(iso) {
+    const hoy = hoyISO();
+    if (iso === hoy) return 'Hoy';
+
+    const ayer = new Date(hoy + 'T12:00:00');
+    ayer.setDate(ayer.getDate() - 1);
+    if (iso === ayer.toISOString().slice(0, 10)) return 'Ayer';
+
+    const texto = diaLargo.format(new Date(iso + 'T12:00:00'));
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function aNumero(texto) {
+    const limpio = String(texto || '').replace(/\s/g, '').replace(',', '.');
+    const n = parseFloat(limpio);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+}
+
+function idCliente() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return 'c' + Date.now() + Math.random().toString(16).slice(2);
+}
+
+function escapar(texto) {
+    const d = document.createElement('div');
+    d.textContent = texto ?? '';
+    return d.innerHTML;
+}
+
+let recadoTemporizador = null;
+function recado(texto) {
+    document.querySelectorAll('.recado').forEach((n) => n.remove());
+    const n = document.createElement('div');
+    n.className = 'recado';
+    n.setAttribute('role', 'status');
+    n.textContent = texto;
+    document.body.appendChild(n);
+    clearTimeout(recadoTemporizador);
+    recadoTemporizador = setTimeout(() => n.remove(), 2600);
+}
+
+function mostrarAviso(elemento, texto) {
+    if (!texto) {
+        elemento.classList.add('oculto');
+        elemento.textContent = '';
+        return;
+    }
+    elemento.textContent = texto;
+    elemento.classList.remove('oculto');
+}
+
+// ------------------------------------------------------------
+//  Copia local (para arrancar sin conexión)
+// ------------------------------------------------------------
+function guardarCache() {
+    try {
+        localStorage.setItem(CLAVE_CACHE, JSON.stringify({
+            perfiles: estado.perfiles,
+            gastos: estado.gastos.filter((g) => !g.pendiente),
+            liquidaciones: estado.liquidaciones.filter((l) => !l.pendiente),
+        }));
+    } catch (e) {
+        console.warn('No se pudo guardar la copia local', e);
+    }
+}
+
+function leerCache() {
+    try {
+        const bruto = localStorage.getItem(CLAVE_CACHE);
+        if (!bruto) return false;
+        const datos = JSON.parse(bruto);
+        estado.perfiles = datos.perfiles || [];
+        estado.gastos = datos.gastos || [];
+        estado.liquidaciones = datos.liquidaciones || [];
+        repartirPerfiles();
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function guardarCola() {
+    try {
+        localStorage.setItem(CLAVE_COLA, JSON.stringify(estado.cola));
+    } catch (e) {
+        console.warn('No se pudo guardar la cola', e);
+    }
+}
+
+function leerCola() {
+    try {
+        estado.cola = JSON.parse(localStorage.getItem(CLAVE_COLA) || '[]');
+    } catch {
+        estado.cola = [];
+    }
+}
+
+// ------------------------------------------------------------
+//  Sesión
+// ------------------------------------------------------------
+function pintarModoAcceso() {
+    $('campoNombre').classList.toggle('oculto', !estado.modoAlta);
+    $('botonAcceder').textContent = estado.modoAlta ? 'Crear cuenta' : 'Entrar';
+    $('botonCambiarModo').textContent = estado.modoAlta
+        ? 'Ya tengo cuenta, entrar'
+        : 'Crear una cuenta';
+    $('entradaClave').setAttribute(
+        'autocomplete',
+        estado.modoAlta ? 'new-password' : 'current-password'
+    );
+    mostrarAviso($('avisoAcceso'), '');
+}
+
+async function acceder() {
+    const correo = $('entradaCorreo').value.trim();
+    const clave = $('entradaClave').value;
+    const nombre = $('entradaNombre').value.trim();
+
+    if (!correo || !clave) {
+        mostrarAviso($('avisoAcceso'), 'Faltan el correo o la contraseña.');
+        return;
+    }
+    if (estado.modoAlta && !nombre) {
+        mostrarAviso($('avisoAcceso'), 'Escribe el nombre que quieres que aparezca en la app.');
+        return;
+    }
+    if (!navigator.onLine) {
+        mostrarAviso($('avisoAcceso'), 'Para entrar la primera vez hace falta conexión.');
+        return;
+    }
+
+    $('botonAcceder').disabled = true;
+    mostrarAviso($('avisoAcceso'), '');
+
+    try {
+        if (estado.modoAlta) {
+            const { error } = await sb.auth.signUp({
+                email: correo,
+                password: clave,
+                options: { data: { display_name: nombre } },
+            });
+            if (error) throw error;
+            recado('Cuenta creada');
+        } else {
+            const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
+            if (error) throw error;
+        }
+    } catch (error) {
+        mostrarAviso($('avisoAcceso'), traducirError(error));
+    } finally {
+        $('botonAcceder').disabled = false;
+    }
+}
+
+function traducirError(error) {
+    const m = (error?.message || '').toLowerCase();
+    if (m.includes('invalid login')) return 'El correo o la contraseña no son correctos.';
+    if (m.includes('already registered')) return 'Ese correo ya tiene cuenta. Entra en lugar de crearla.';
+    if (m.includes('password should be')) return 'La contraseña necesita al menos 6 caracteres.';
+    if (m.includes('email not confirmed')) return 'Confirma el correo desde el enlace que te ha llegado.';
+    if (m.includes('signups not allowed')) return 'El alta de cuentas nuevas está cerrada en Supabase.';
+    if (m.includes('failed to fetch')) return 'Sin conexión con el servidor. Revisa la red.';
+    return error?.message || 'Algo ha fallado. Inténtalo otra vez.';
+}
+
+async function salir() {
+    await sb.auth.signOut();
+    localStorage.removeItem(CLAVE_CACHE);
+    location.reload();
+}
+
+// ------------------------------------------------------------
+//  Datos
+// ------------------------------------------------------------
+function repartirPerfiles() {
+    const miId = estado.sesion?.user?.id;
+    estado.yo = estado.perfiles.find((p) => p.id === miId) || estado.perfiles[0] || null;
+    estado.otro = estado.perfiles.find((p) => p.id !== estado.yo?.id) || null;
+}
+
+function perfil(id) {
+    return estado.perfiles.find((p) => p.id === id) || { display_name: 'Alguien', color: 'laurel' };
+}
+
+function otroId(id) {
+    return estado.perfiles.find((p) => p.id !== id)?.id;
+}
+
+async function cargarTodo() {
+    const [perfiles, gastos, liquidaciones] = await Promise.all([
+        sb.from('profiles').select('*').order('created_at'),
+        sb.from('expenses').select('*').order('spent_on', { ascending: false })
+          .order('created_at', { ascending: false }).limit(500),
+        sb.from('settlements').select('*').order('settled_on', { ascending: false }).limit(200),
+    ]);
+
+    if (perfiles.error || gastos.error || liquidaciones.error) {
+        throw perfiles.error || gastos.error || liquidaciones.error;
+    }
+
+    estado.perfiles = perfiles.data;
+    estado.gastos = gastos.data;
+    estado.liquidaciones = liquidaciones.data;
+
+    repartirPerfiles();
+    reponerPendientes();
+    guardarCache();
+}
+
+// Reinserta en la vista lo que sigue en la cola, para que un gasto
+// apuntado sin cobertura no desaparezca al refrescar.
+function reponerPendientes() {
+    for (const tarea of estado.cola) {
+        const lista = tarea.tabla === 'expenses' ? estado.gastos : estado.liquidaciones;
+        if (!lista.some((f) => f.client_id === tarea.fila.client_id)) {
+            lista.push({ ...tarea.fila, id: tarea.fila.client_id, pendiente: true });
+        }
+    }
+}
+
+// ------------------------------------------------------------
+//  Cola de envío
+// ------------------------------------------------------------
+function encolar(tabla, fila) {
+    estado.cola.push({ tabla, fila });
+    guardarCola();
+}
+
+async function vaciarCola() {
+    if (!estado.cola.length || !navigator.onLine) return;
+
+    const restantes = [];
+    for (const tarea of estado.cola) {
+        try {
+            const { error } = await sb.from(tarea.tabla)
+                .upsert(tarea.fila, { onConflict: 'client_id' });
+            if (error) throw error;
+        } catch (e) {
+            console.warn('Sigue pendiente de enviar', e);
+            restantes.push(tarea);
+        }
+    }
+
+    const enviadas = estado.cola.length - restantes.length;
+    estado.cola = restantes;
+    guardarCola();
+
+    if (enviadas > 0) {
+        recado(enviadas === 1 ? 'Gasto sincronizado' : enviadas + ' apuntes sincronizados');
+        await refrescar();
+    }
+}
+
+async function refrescar() {
+    if (!navigator.onLine) {
+        pintar();
+        return;
+    }
+    try {
+        await cargarTodo();
+    } catch (e) {
+        console.warn('No se han podido traer los datos', e);
+    }
+    pintar();
+}
+
+// ------------------------------------------------------------
+//  Balance
+//  Por cada gasto, quien no pagó debe importe × (1 − payer_share).
+//  Las liquidaciones restan de esa deuda.
+// ------------------------------------------------------------
+function calcularSaldo() {
+    const neto = {};
+    for (const p of estado.perfiles) neto[p.id] = 0;
+
+    for (const g of estado.gastos) {
+        const deuda = Number(g.amount) * (1 - Number(g.payer_share));
+        const otro = estado.perfiles.find((p) => p.id !== g.paid_by);
+        if (!otro) continue;
+        neto[g.paid_by] = (neto[g.paid_by] || 0) + deuda;
+        neto[otro.id] = (neto[otro.id] || 0) - deuda;
+    }
+
+    for (const l of estado.liquidaciones) {
+        neto[l.from_user] = (neto[l.from_user] || 0) + Number(l.amount);
+        neto[l.to_user] = (neto[l.to_user] || 0) - Number(l.amount);
+    }
+
+    return Math.round((neto[estado.yo?.id] || 0) * 100) / 100;
+}
+
+// ------------------------------------------------------------
+//  Pintado
+// ------------------------------------------------------------
+function pintar() {
+    pintarSaldo();
+    pintarLista();
+    pintarEstado();
+}
+
+function pintarSaldo() {
+    const saldo = calcularSaldo();
+    const cifra = $('saldoCifra');
+    const frase = $('saldoFrase');
+    const barra = $('fielBarra');
+
+    cifra.textContent = formatoDinero(Math.abs(saldo));
+
+    const nombreOtro = estado.otro?.display_name;
+    const colorYo = estado.yo?.color === 'buganvilla' ? 'var(--buganvilla)' : 'var(--laurel)';
+    const colorOtro = estado.otro?.color === 'buganvilla' ? 'var(--buganvilla)' : 'var(--laurel)';
+
+    $('fielIzquierda').textContent = estado.yo?.display_name || '—';
+    $('fielDerecha').textContent = nombreOtro || 'Falta la 2ª cuenta';
+
+    if (!estado.otro) {
+        frase.innerHTML = 'Cuando la otra persona cree su cuenta, aquí aparecerá el reparto.';
+        cifra.style.color = '';
+        barra.style.width = '0';
+        return;
+    }
+
+    if (Math.abs(saldo) < 0.005) {
+        frase.innerHTML = 'Estáis en paz. Nadie debe nada.';
+        cifra.style.color = '';
+        barra.style.width = '0';
+        barra.style.left = '50%';
+        return;
+    }
+
+    if (saldo > 0) {
+        frase.innerHTML = '<strong>' + escapar(nombreOtro) + '</strong> te debe esta cantidad.';
+        cifra.style.color = colorYo;
+        barra.style.background = colorYo;
+        barra.style.left = 'auto';
+        barra.style.right = '50%';
+    } else {
+        frase.innerHTML = 'Le debes esta cantidad a <strong>' + escapar(nombreOtro) + '</strong>.';
+        cifra.style.color = colorOtro;
+        barra.style.background = colorOtro;
+        barra.style.right = 'auto';
+        barra.style.left = '50%';
+    }
+
+    barra.style.width = (Math.min(Math.abs(saldo) / TOPE_FIEL, 1) * 50) + '%';
+}
+
+function pintarLista() {
+    const lista = $('lista');
+
+    const movimientos = [
+        ...estado.gastos.map((g) => ({ ...g, tipo: 'gasto', fecha: g.spent_on })),
+        ...estado.liquidaciones.map((l) => ({ ...l, tipo: 'liquidacion', fecha: l.settled_on })),
+    ].sort((a, b) => {
+        if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
+        return (a.created_at || '') < (b.created_at || '') ? 1 : -1;
+    });
+
+    if (!movimientos.length) {
+        lista.innerHTML =
+            '<div class="vacio">' +
+            '<p class="vacio__titulo">Todavía no hay nada apuntado</p>' +
+            '<p>Empieza por el primer gasto y el saldo se calcula solo.</p>' +
+            '</div>';
+        return;
+    }
+
+    let html = '';
+    let diaActual = null;
+
+    for (const m of movimientos) {
+        if (m.fecha !== diaActual) {
+            diaActual = m.fecha;
+            html += '<h2 class="lista__dia rotulo">' + escapar(tituloDia(diaActual)) + '</h2>';
+        }
+
+        if (m.tipo === 'gasto') {
+            const quien = perfil(m.paid_by);
+            const reparto = Number(m.payer_share);
+            let notaReparto = 'a medias';
+            if (reparto >= 0.999) notaReparto = 'solo para ' + quien.display_name;
+            else if (reparto <= 0.001) notaReparto = 'solo para ' + perfil(otroId(m.paid_by)).display_name;
+            else if (Math.abs(reparto - 0.5) > 0.001) notaReparto = Math.round(reparto * 100) + ' / ' + Math.round((1 - reparto) * 100);
+
+            html +=
+                '<button class="gasto' + (m.pendiente ? ' gasto--pendiente' : '') + '"' +
+                ' data-color="' + escapar(quien.color) + '"' +
+                ' data-gasto="' + escapar(m.id) + '">' +
+                '<span class="gasto__cuerpo">' +
+                '<span class="gasto__concepto">' + escapar(m.description) + '</span>' +
+                '<span class="gasto__meta">' + escapar(quien.display_name) + ' · ' +
+                escapar(m.category) + ' · ' + escapar(notaReparto) +
+                (m.pendiente ? ' · sin enviar' : '') + '</span>' +
+                '</span>' +
+                '<span class="gasto__importe cifra">' + formatoDinero(m.amount) + '</span>' +
+                '</button>';
+        } else {
+            const de = perfil(m.from_user);
+            const a = perfil(m.to_user);
+            html +=
+                '<div class="gasto gasto--liquidacion' + (m.pendiente ? ' gasto--pendiente' : '') + '"' +
+                ' data-color="' + escapar(de.color) + '">' +
+                '<span class="gasto__cuerpo">' +
+                '<span class="gasto__concepto">Pago de ' + escapar(de.display_name) +
+                ' a ' + escapar(a.display_name) + '</span>' +
+                '<span class="gasto__meta">' + escapar(m.note || 'Cuentas saldadas') +
+                (m.pendiente ? ' · sin enviar' : '') + '</span>' +
+                '</span>' +
+                '<span class="gasto__importe cifra">' + formatoDinero(m.amount) + '</span>' +
+                '</div>';
+        }
+    }
+
+    lista.innerHTML = html;
+
+    lista.querySelectorAll('[data-gasto]').forEach((boton) => {
+        boton.addEventListener('click', () => abrirHojaGasto(boton.dataset.gasto));
+    });
+}
+
+function pintarEstado() {
+    const barra = $('barraEstado');
+    const texto = $('textoEstado');
+
+    if (!navigator.onLine) {
+        texto.textContent = estado.cola.length
+            ? 'Sin conexión · ' + estado.cola.length + ' apunte(s) esperando'
+            : 'Sin conexión · lo que apuntes se enviará al volver';
+        barra.classList.remove('oculto');
+        return;
+    }
+
+    if (estado.cola.length) {
+        texto.textContent = estado.cola.length + ' apunte(s) por enviar';
+        barra.classList.remove('oculto');
+        return;
+    }
+
+    barra.classList.add('oculto');
+}
+
+// ------------------------------------------------------------
+//  Hoja de gasto
+// ------------------------------------------------------------
+function pintarOpcionesPagador() {
+    const caja = $('opcionesPagador');
+    caja.innerHTML = '';
+
+    for (const p of [estado.yo, estado.otro].filter(Boolean)) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'opcion';
+        b.dataset.color = p.color;
+        b.textContent = p.display_name;
+        b.setAttribute('aria-pressed', String(estado.formulario.pagador === p.id));
+        b.addEventListener('click', () => {
+            estado.formulario.pagador = p.id;
+            pintarOpcionesPagador();
+            pintarOpcionesReparto();
+        });
+        caja.appendChild(b);
+    }
+}
+
+function pintarOpcionesReparto() {
+    const caja = $('opcionesReparto');
+    caja.innerHTML = '';
+
+    const pagador = perfil(estado.formulario.pagador);
+    const receptor = perfil(otroId(estado.formulario.pagador));
+
+    const opciones = [
+        { valor: 0.5, texto: 'Mitad y mitad' },
+        { valor: 1, texto: 'Solo para ' + pagador.display_name },
+        { valor: 0, texto: 'Solo para ' + receptor.display_name },
+        { valor: 'libre', texto: 'Otro reparto' },
+    ];
+
+    const esLibre = estado.formulario.reparto === 'libre';
+
+    for (const o of opciones) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'opcion';
+        b.textContent = o.texto;
+        b.setAttribute('aria-pressed', String(estado.formulario.reparto === o.valor));
+        b.addEventListener('click', () => {
+            estado.formulario.reparto = o.valor;
+            pintarOpcionesReparto();
+        });
+        caja.appendChild(b);
+    }
+
+    if (esLibre) {
+        const envoltorio = document.createElement('div');
+        envoltorio.className = 'campo';
+        envoltorio.style.width = '100%';
+
+        const etiqueta = document.createElement('label');
+        etiqueta.setAttribute('for', 'entradaPorcentaje');
+        etiqueta.textContent = 'Porcentaje que asume ' + pagador.display_name;
+
+        const entrada = document.createElement('input');
+        entrada.type = 'number';
+        entrada.id = 'entradaPorcentaje';
+        entrada.min = '0';
+        entrada.max = '100';
+        entrada.step = '1';
+        entrada.inputMode = 'numeric';
+        entrada.value = estado.formulario.repartoLibre;
+        entrada.addEventListener('input', (e) => {
+            estado.formulario.repartoLibre = e.target.value;
+        });
+
+        envoltorio.appendChild(etiqueta);
+        envoltorio.appendChild(entrada);
+        caja.appendChild(envoltorio);
+    }
+}
+
+function pintarCategorias() {
+    const select = $('entradaCategoria');
+    select.innerHTML = CATEGORIES
+        .map((c) => '<option value="' + escapar(c) + '">' + escapar(c) + '</option>')
+        .join('');
+}
+
+function abrirHojaGasto(id) {
+    if (!estado.otro) {
+        recado('Falta que la otra persona cree su cuenta');
+        return;
+    }
+
+    mostrarAviso($('avisoGasto'), '');
+    estado.editando = id || null;
+
+    const gasto = id ? estado.gastos.find((g) => String(g.id) === String(id)) : null;
+
+    if (gasto) {
+        $('tituloGasto').textContent = 'Editar gasto';
+        $('entradaImporte').value = String(gasto.amount).replace('.', ',');
+        $('entradaConcepto').value = gasto.description;
+        $('entradaCategoria').value = gasto.category;
+        $('entradaFecha').value = gasto.spent_on;
+        estado.formulario.pagador = gasto.paid_by;
+
+        const s = Number(gasto.payer_share);
+        if (s === 0.5 || s === 1 || s === 0) {
+            estado.formulario.reparto = s;
+        } else {
+            estado.formulario.reparto = 'libre';
+            estado.formulario.repartoLibre = Math.round(s * 100);
+        }
+        $('botonBorrarGasto').classList.toggle('oculto', Boolean(gasto.pendiente));
+    } else {
+        $('tituloGasto').textContent = 'Nuevo gasto';
+        $('entradaImporte').value = '';
+        $('entradaConcepto').value = '';
+        $('entradaCategoria').value = CATEGORIES[0];
+        $('entradaFecha').value = hoyISO();
+        estado.formulario.pagador = estado.yo?.id;
+        estado.formulario.reparto = 0.5;
+        $('botonBorrarGasto').classList.add('oculto');
+    }
+
+    pintarOpcionesPagador();
+    pintarOpcionesReparto();
+    $('veloGasto').classList.remove('oculto');
+
+    if (!gasto) setTimeout(() => $('entradaImporte').focus(), 120);
+}
+
+function cerrarHojaGasto() {
+    $('veloGasto').classList.add('oculto');
+    estado.editando = null;
+}
+
+function repartoActual() {
+    if (estado.formulario.reparto !== 'libre') return Number(estado.formulario.reparto);
+    const p = Number(estado.formulario.repartoLibre);
+    if (!Number.isFinite(p) || p < 0 || p > 100) return NaN;
+    return Math.round(p) / 100;
+}
+
+async function guardarGasto() {
+    const importe = aNumero($('entradaImporte').value);
+    const concepto = $('entradaConcepto').value.trim();
+    const reparto = repartoActual();
+
+    if (!Number.isFinite(importe) || importe <= 0) {
+        mostrarAviso($('avisoGasto'), 'Escribe un importe mayor que cero.');
+        return;
+    }
+    if (!concepto) {
+        mostrarAviso($('avisoGasto'), 'Falta decir en qué fue el gasto.');
+        return;
+    }
+    if (!Number.isFinite(reparto)) {
+        mostrarAviso($('avisoGasto'), 'El porcentaje tiene que estar entre 0 y 100.');
+        return;
+    }
+
+    const fila = {
+        paid_by: estado.formulario.pagador,
+        amount: importe,
+        description: concepto,
+        category: $('entradaCategoria').value,
+        payer_share: reparto,
+        spent_on: $('entradaFecha').value || hoyISO(),
+    };
+
+    $('botonGuardarGasto').disabled = true;
+
+    try {
+        if (estado.editando) {
+            const { error } = await sb.from('expenses').update(fila).eq('id', estado.editando);
+            if (error) throw error;
+            recado('Gasto actualizado');
+            cerrarHojaGasto();
+            await refrescar();
+        } else {
+            fila.client_id = idCliente();
+            let enviado = false;
+
+            if (navigator.onLine) {
+                const { error } = await sb.from('expenses').insert(fila);
+                if (!error) enviado = true;
+            }
+
+            if (enviado) {
+                recado('Gasto guardado');
+                cerrarHojaGasto();
+                await refrescar();
+            } else {
+                encolar('expenses', fila);
+                estado.gastos.push({ ...fila, id: fila.client_id, pendiente: true });
+                recado('Guardado, se enviará al recuperar la conexión');
+                cerrarHojaGasto();
+                pintar();
+            }
+        }
+    } catch (error) {
+        mostrarAviso($('avisoGasto'), traducirError(error));
+    } finally {
+        $('botonGuardarGasto').disabled = false;
+    }
+}
+
+async function borrarGasto() {
+    if (!estado.editando) return;
+    if (!confirm('¿Borrar este gasto? No se puede deshacer.')) return;
+
+    try {
+        const { error } = await sb.from('expenses').delete().eq('id', estado.editando);
+        if (error) throw error;
+        recado('Gasto borrado');
+        cerrarHojaGasto();
+        await refrescar();
+    } catch (error) {
+        mostrarAviso($('avisoGasto'), traducirError(error));
+    }
+}
+
+// ------------------------------------------------------------
+//  Hoja de liquidación
+// ------------------------------------------------------------
+function abrirHojaLiquidar() {
+    if (!estado.otro) {
+        recado('Falta que la otra persona cree su cuenta');
+        return;
+    }
+
+    const saldo = calcularSaldo();
+    mostrarAviso($('avisoLiquidar'), '');
+
+    if (Math.abs(saldo) < 0.005) {
+        $('resumenLiquidar').innerHTML =
+            '<strong>Nada pendiente</strong>No hace falta que nadie pague, pero puedes registrar un pago igualmente.';
+        $('entradaImporteLiquidar').value = '';
+    } else if (saldo > 0) {
+        $('resumenLiquidar').innerHTML =
+            '<strong>' + formatoDinero(Math.abs(saldo)) + '</strong>' +
+            escapar(estado.otro.display_name) + ' te paga a ti.';
+        $('entradaImporteLiquidar').value = Math.abs(saldo).toFixed(2).replace('.', ',');
+    } else {
+        $('resumenLiquidar').innerHTML =
+            '<strong>' + formatoDinero(Math.abs(saldo)) + '</strong>' +
+            'Le pagas a ' + escapar(estado.otro.display_name) + '.';
+        $('entradaImporteLiquidar').value = Math.abs(saldo).toFixed(2).replace('.', ',');
+    }
+
+    $('entradaNotaLiquidar').value = '';
+    $('veloLiquidar').classList.remove('oculto');
+}
+
+async function guardarLiquidacion() {
+    const importe = aNumero($('entradaImporteLiquidar').value);
+
+    if (!Number.isFinite(importe) || importe <= 0) {
+        mostrarAviso($('avisoLiquidar'), 'Escribe un importe mayor que cero.');
+        return;
+    }
+
+    const saldo = calcularSaldo();
+    // Paga quien debe. Si están en paz, se asume que pagas tú.
+    const paga = saldo > 0 ? estado.otro.id : estado.yo.id;
+    const cobra = saldo > 0 ? estado.yo.id : estado.otro.id;
+
+    const fila = {
+        from_user: paga,
+        to_user: cobra,
+        amount: importe,
+        note: $('entradaNotaLiquidar').value.trim() || null,
+        settled_on: hoyISO(),
+        client_id: idCliente(),
+    };
+
+    $('botonGuardarLiquidar').disabled = true;
+
+    try {
+        let enviado = false;
+        if (navigator.onLine) {
+            const { error } = await sb.from('settlements').insert(fila);
+            if (!error) enviado = true;
+        }
+
+        if (enviado) {
+            recado('Pago registrado');
+            $('veloLiquidar').classList.add('oculto');
+            await refrescar();
+        } else {
+            encolar('settlements', fila);
+            estado.liquidaciones.push({ ...fila, id: fila.client_id, pendiente: true });
+            recado('Guardado, se enviará al recuperar la conexión');
+            $('veloLiquidar').classList.add('oculto');
+            pintar();
+        }
+    } catch (error) {
+        mostrarAviso($('avisoLiquidar'), traducirError(error));
+    } finally {
+        $('botonGuardarLiquidar').disabled = false;
+    }
+}
+
+// ------------------------------------------------------------
+//  Tiempo real
+// ------------------------------------------------------------
+let canal = null;
+
+function escucharCambios() {
+    if (canal) sb.removeChannel(canal);
+
+    canal = sb.channel('gastos-compartidos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, refrescar)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, refrescar)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refrescar)
+        .subscribe();
+}
+
+// ------------------------------------------------------------
+//  Arranque
+// ------------------------------------------------------------
+function conectarEventos() {
+    $('botonAcceder').addEventListener('click', acceder);
+    $('botonCambiarModo').addEventListener('click', () => {
+        estado.modoAlta = !estado.modoAlta;
+        pintarModoAcceso();
+    });
+    $('entradaClave').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') acceder();
+    });
+
+    $('botonSalir').addEventListener('click', salir);
+    $('botonNuevoGasto').addEventListener('click', () => abrirHojaGasto(null));
+    $('botonLiquidar').addEventListener('click', abrirHojaLiquidar);
+
+    $('botonGuardarGasto').addEventListener('click', guardarGasto);
+    $('botonBorrarGasto').addEventListener('click', borrarGasto);
+    $('botonCerrarGasto').addEventListener('click', cerrarHojaGasto);
+
+    $('botonGuardarLiquidar').addEventListener('click', guardarLiquidacion);
+    $('botonCerrarLiquidar').addEventListener('click', () => $('veloLiquidar').classList.add('oculto'));
+
+    for (const idVelo of ['veloGasto', 'veloLiquidar']) {
+        $(idVelo).addEventListener('click', (e) => {
+            if (e.target.id === idVelo) $(idVelo).classList.add('oculto');
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        $('veloGasto').classList.add('oculto');
+        $('veloLiquidar').classList.add('oculto');
+    });
+
+    window.addEventListener('online', async () => {
+        pintarEstado();
+        await vaciarCola();
+        await refrescar();
+    });
+    window.addEventListener('offline', pintarEstado);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && estado.sesion) {
+            vaciarCola().then(refrescar);
+        }
+    });
+}
+
+async function entrarEnLaApp() {
+    $('pantallaAcceso').classList.add('oculto');
+    $('pantallaApp').classList.remove('oculto');
+
+    pintarCategorias();
+    leerCola();
+
+    if (leerCache()) {
+        reponerPendientes();
+        pintar();
+    }
+
+    await refrescar();
+    await vaciarCola();
+    escucharCambios();
+}
+
+function mostrarAcceso() {
+    $('pantallaApp').classList.add('oculto');
+    $('pantallaAcceso').classList.remove('oculto');
+    pintarModoAcceso();
+}
+
+async function iniciar() {
+    conectarEventos();
+    pintarCategorias();
+
+    const { data } = await sb.auth.getSession();
+    estado.sesion = data.session;
+
+    if (estado.sesion) {
+        await entrarEnLaApp();
+    } else {
+        mostrarAcceso();
+    }
+
+    sb.auth.onAuthStateChange(async (evento, sesion) => {
+        estado.sesion = sesion;
+        if (sesion && evento === 'SIGNED_IN') {
+            await entrarEnLaApp();
+        } else if (!sesion) {
+            mostrarAcceso();
+        }
+    });
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch((e) =>
+            console.warn('No se pudo registrar el service worker', e)
+        );
+    }
+}
+
+iniciar();
+</script>
+</body>
+</html>
