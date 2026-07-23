@@ -5,7 +5,7 @@
 //  es lo que fuerza la actualización en los móviles.
 // ============================================================
 
-const VERSION = 'gastos-v1';
+const VERSION = 'gastos-v4';
 
 const ARCHIVOS = [
     './',
@@ -45,8 +45,7 @@ self.addEventListener('fetch', (evento) => {
 
     const url = new URL(peticion.url);
 
-    // Las llamadas a Supabase van siempre a la red: los datos
-    // nunca se sirven de una copia vieja.
+    // Las llamadas a Supabase van siempre a la red.
     if (url.hostname.endsWith('.supabase.co')) return;
 
     const mismoOrigen = url.origin === self.location.origin;
