@@ -1138,7 +1138,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v11';
+const VERSION_APP = 'v12';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -1147,7 +1147,7 @@ const GOOGLE_ACTIVO = false;
 
 const CATEGORIES = [
     'súper', 'casa', 'coche', 'comer fuera', 'alojamiento',
-    'transporte', 'ocio', 'viajes', 'salud', 'niños', 'otros',
+    'transporte', 'parking', 'ocio', 'viajes', 'salud', 'niños', 'otros',
 ];
 
 // El saldo con el que el fiel de la balanza llega al extremo.
@@ -2640,9 +2640,11 @@ const PISTAS_CATEGORIA = {
     'comer fuera': ['cena', 'cenar', 'comida', 'comer', 'desayuno', 'almuerzo',
                     'restaurante', 'bar', 'café', 'cafe', 'copas', 'menú', 'menu',
                     'pizza', 'helado', 'bocadillo', 'cerveza', 'bollo', 'agua'],
+    'parking':     ['parking', 'aparcamiento', 'garaje', 'estacionamiento',
+                    'parquímetro', 'parquimetro', 'zona azul'],
     'alojamiento': ['hotel', 'apartamento', 'airbnb', 'hostal', 'noche', 'alojamiento'],
     'transporte':  ['taxi', 'tren', 'bus', 'autobús', 'autobus', 'metro', 'billete',
-                    'billetes', 'gasolina', 'peaje', 'parking', 'aparcamiento', 'vuelo',
+                    'billetes', 'gasolina', 'peaje', 'vuelo',
                     'autopista', 'viñeta', 'ferry', 'barco'],
     'ocio':        ['entradas', 'entrada', 'museo', 'cine', 'concierto', 'excursión',
                     'excursion', 'visita', 'teatro', 'tour', 'castillo', 'cueva'],
