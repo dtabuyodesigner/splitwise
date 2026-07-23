@@ -3,16 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Gastos</title>
+<title>Gastos compartidos</title>
 
-<meta name="description" content="Gastos compartidos de casa.">
+<meta name="description" content="Gastos compartidos: lo que pone cada uno y lo que queda por saldar.">
 <meta name="theme-color" content="#14201F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gastos">
 <link rel="manifest" href="manifest.json">
 
-<!-- Icono incrustado: no hace falta subir ningún PNG. -->
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=">
 <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=">
 
@@ -109,7 +108,7 @@ button { cursor: pointer; border: none; background: none; }
 .acceso__marca {
     font-family: var(--display);
     font-weight: 800;
-    font-size: clamp(44px, 15vw, 64px);
+    font-size: clamp(42px, 14vw, 60px);
     line-height: .95;
     letter-spacing: -.03em;
     margin: 0 0 8px;
@@ -117,7 +116,7 @@ button { cursor: pointer; border: none; background: none; }
 
 .acceso__pie {
     color: var(--tiza);
-    margin: 0 0 40px;
+    margin: 0 0 32px;
     max-width: 30ch;
 }
 
@@ -126,11 +125,29 @@ button { cursor: pointer; border: none; background: none; }
     height: 6px;
     border-radius: 99px;
     overflow: hidden;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
 }
 .acceso__fiel span { flex: 1; }
 .acceso__fiel span:first-child { background: var(--laurel); }
 .acceso__fiel span:last-child  { background: var(--buganvilla); }
+
+.separador {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--tiza);
+}
+.separador::before, .separador::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--linea);
+}
 
 .campo { margin-bottom: 16px; }
 
@@ -180,6 +197,17 @@ button { cursor: pointer; border: none; background: none; }
     padding: 12px;
 }
 
+.boton--google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--carta);
+    color: var(--basalto);
+    border: 1px solid var(--linea);
+}
+.boton--google svg { width: 18px; height: 18px; flex: none; }
+
 .aviso {
     margin: 0 0 16px;
     padding: 12px 14px;
@@ -199,10 +227,45 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 .saldo {
-    padding: calc(24px + var(--arriba)) 24px 24px;
+    padding: calc(20px + var(--arriba)) 0 24px;
     background: var(--basalto);
     color: var(--niebla);
     border-radius: 0 0 var(--r-l) var(--r-l);
+}
+
+.saldo__interior { padding: 0 24px; }
+
+/* Grupos: una fila deslizable de pestañas. */
+.grupos {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 24px 18px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.grupos::-webkit-scrollbar { display: none; }
+
+.grupo {
+    flex: none;
+    padding: 8px 15px;
+    border-radius: 99px;
+    background: rgba(238, 241, 240, .1);
+    color: rgba(238, 241, 240, .7);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.grupo[aria-current="true"] {
+    background: var(--niebla);
+    color: var(--basalto);
+}
+
+.grupo--gestion {
+    background: transparent;
+    border: 1px dashed rgba(238, 241, 240, .3);
 }
 
 .saldo__fila {
@@ -541,6 +604,59 @@ button { cursor: pointer; border: none; background: none; }
 .pareja { display: flex; gap: 12px; }
 .pareja > .campo { flex: 1; }
 
+/* ---------- Dictado ---------- */
+.dictado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-m);
+    padding: 6px 6px 6px 16px;
+    margin-bottom: 8px;
+}
+
+.dictado__campo {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: none;
+    padding: 10px 0;
+}
+.dictado__campo:focus { outline: none; }
+
+.dictado__micro {
+    flex: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 99px;
+    background: var(--basalto);
+    color: var(--niebla);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color .2s ease, transform .2s ease;
+}
+.dictado__micro svg { width: 19px; height: 19px; }
+
+.dictado__micro[data-escuchando="true"] {
+    background: var(--buganvilla);
+    animation: latido 1.3s ease-in-out infinite;
+}
+
+@keyframes latido {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.09); }
+}
+
+.dictado__pista {
+    font-size: 13px;
+    color: var(--tiza);
+    margin: 0 0 20px;
+    padding: 0 4px;
+    line-height: 1.35;
+}
+
 .hoja__borrar {
     width: 100%;
     padding: 14px;
@@ -568,6 +684,42 @@ button { cursor: pointer; border: none; background: none; }
     color: var(--basalto);
     margin-bottom: 2px;
 }
+
+/* Lista de grupos dentro de la hoja de gestión */
+.ficha {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    margin-bottom: 8px;
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-m);
+}
+
+.ficha__nombre {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ficha__cuenta {
+    font-size: 13px;
+    color: var(--tiza);
+    font-weight: 400;
+}
+
+.ficha__accion {
+    flex: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tiza);
+    padding: 6px 4px;
+}
+.ficha__accion--peligro { color: var(--buganvilla); }
 
 .recado {
     position: fixed;
@@ -602,28 +754,46 @@ button { cursor: pointer; border: none; background: none; }
      ACCESO
      ============================================================ -->
 <section class="acceso oculto" id="pantallaAcceso">
-    <h1 class="acceso__marca">Gastos<br>de casa</h1>
+    <h1 class="acceso__marca">Gastos<br>compartidos</h1>
     <p class="acceso__pie">Lo que pone cada uno y lo que queda por saldar.</p>
     <div class="acceso__fiel" aria-hidden="true"><span></span><span></span></div>
 
     <p class="aviso oculto" id="avisoAcceso"></p>
 
-    <div class="campo oculto" id="campoNombre">
-        <label for="entradaNombre">Tu nombre</label>
-        <input type="text" id="entradaNombre" autocomplete="name" placeholder="Dani">
-    </div>
+    <button class="boton boton--google" id="botonGoogle">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.8 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.8c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7.2-10.2 7.2-17.4z"/>
+            <path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.8-6.1z"/>
+            <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.4 0-11.7-3.7-13.6-9.8l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>
+        </svg>
+        Continuar con Google
+    </button>
 
-    <div class="campo">
-        <label for="entradaCorreo">Correo</label>
-        <input type="email" id="entradaCorreo" autocomplete="email" inputmode="email" placeholder="tucorreo@ejemplo.com">
-    </div>
+    <div class="separador">o con tu correo</div>
 
-    <div class="campo">
-        <label for="entradaClave">Contraseña</label>
-        <input type="password" id="entradaClave" autocomplete="current-password" placeholder="••••••••">
-    </div>
+    <form id="formAcceso" autocomplete="on" novalidate>
+        <div class="campo oculto" id="campoNombre">
+            <label for="entradaNombre">Tu nombre</label>
+            <input type="text" id="entradaNombre" name="name" autocomplete="name" placeholder="Dani">
+        </div>
 
-    <button class="boton" id="botonAcceder">Entrar</button>
+        <div class="campo">
+            <label for="entradaCorreo">Correo</label>
+            <input type="email" id="entradaCorreo" name="username" autocomplete="username"
+                   inputmode="email" autocapitalize="off" autocorrect="off"
+                   placeholder="tucorreo@ejemplo.com">
+        </div>
+
+        <div class="campo">
+            <label for="entradaClave">Contraseña</label>
+            <input type="password" id="entradaClave" name="password"
+                   autocomplete="current-password" placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="boton" id="botonAcceder">Entrar</button>
+    </form>
+
     <button class="boton boton--tenue" id="botonCambiarModo">Crear una cuenta</button>
 </section>
 
@@ -633,21 +803,25 @@ button { cursor: pointer; border: none; background: none; }
 <div class="app oculto" id="pantallaApp">
 
     <header class="saldo">
-        <div class="saldo__fila">
-            <span class="saldo__rotulo">Saldo entre vosotros</span>
-            <button class="saldo__salir" id="botonSalir">Salir</button>
-        </div>
+        <div class="grupos" id="grupos"></div>
 
-        <p class="saldo__cifra cifra" id="saldoCifra">0,00 €</p>
-        <p class="saldo__frase" id="saldoFrase">Cargando…</p>
+        <div class="saldo__interior">
+            <div class="saldo__fila">
+                <span class="saldo__rotulo" id="saldoRotulo">Saldo del grupo</span>
+                <button class="saldo__salir" id="botonSalir">Salir</button>
+            </div>
 
-        <div class="fiel" id="fiel">
-            <div class="fiel__barra" id="fielBarra"></div>
-            <div class="fiel__centro"></div>
-        </div>
-        <div class="fiel__nombres">
-            <span id="fielIzquierda">—</span>
-            <span id="fielDerecha">—</span>
+            <p class="saldo__cifra cifra" id="saldoCifra">0,00 €</p>
+            <p class="saldo__frase" id="saldoFrase">Cargando…</p>
+
+            <div class="fiel" id="fiel">
+                <div class="fiel__barra" id="fielBarra"></div>
+                <div class="fiel__centro"></div>
+            </div>
+            <div class="fiel__nombres">
+                <span id="fielIzquierda">—</span>
+                <span id="fielDerecha">—</span>
+            </div>
         </div>
     </header>
 
@@ -674,6 +848,24 @@ button { cursor: pointer; border: none; background: none; }
 
         <p class="aviso oculto" id="avisoGasto"></p>
 
+        <div class="dictado">
+            <input type="text" class="dictado__campo" id="entradaDictado"
+                   placeholder="23,50 cena en Liubliana pagó Pilar"
+                   aria-label="Dictar el gasto de corrido"
+                   autocapitalize="sentences" autocomplete="off">
+            <button class="dictado__micro" id="botonMicro" aria-label="Dictar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="11" rx="3"/>
+                    <path d="M5 11a7 7 0 0 0 14 0"/>
+                    <path d="M12 18v4"/>
+                </svg>
+            </button>
+        </div>
+        <p class="dictado__pista" id="pistaDictado">
+            Di el importe, en qué fue y quién pagó. Se reparten solos.
+        </p>
+
         <div class="importe">
             <span class="importe__moneda">€</span>
             <input type="text" class="importe__campo cifra" id="entradaImporte"
@@ -682,7 +874,7 @@ button { cursor: pointer; border: none; background: none; }
 
         <div class="campo">
             <label for="entradaConcepto">En qué</label>
-            <input type="text" id="entradaConcepto" placeholder="Compra del súper">
+            <input type="text" id="entradaConcepto" placeholder="Cena en Liubliana">
         </div>
 
         <span class="rotulo">Quién pagó</span>
@@ -700,6 +892,11 @@ button { cursor: pointer; border: none; background: none; }
                 <label for="entradaFecha">Fecha</label>
                 <input type="date" id="entradaFecha">
             </div>
+        </div>
+
+        <div class="campo">
+            <label for="entradaGrupo">Grupo</label>
+            <select id="entradaGrupo"></select>
         </div>
 
         <button class="boton" id="botonGuardarGasto">Guardar gasto</button>
@@ -736,13 +933,36 @@ button { cursor: pointer; border: none; background: none; }
     </div>
 </div>
 
+<!-- ============================================================
+     HOJA: GRUPOS
+     ============================================================ -->
+<div class="velo oculto" id="veloGrupos">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloGrupos">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloGrupos">Grupos</h2>
+
+        <p class="aviso oculto" id="avisoGrupos"></p>
+
+        <div class="campo">
+            <label for="entradaGrupoNuevo">Nombre del grupo nuevo</label>
+            <input type="text" id="entradaGrupoNuevo" placeholder="Eslovenia">
+        </div>
+
+        <button class="boton" id="botonCrearGrupo">Crear grupo</button>
+
+        <span class="rotulo" style="display:block;margin:26px 0 10px">Grupos que ya tenéis</span>
+        <div id="listaGrupos"></div>
+
+        <button class="boton boton--tenue" id="botonCerrarGrupos">Cerrar</button>
+    </div>
+</div>
+
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // ============================================================
 //  ▼▼▼  LO ÚNICO QUE TIENES QUE EDITAR  ▼▼▼
-//  Los dos valores están en Supabase → Project Settings → Data API.
 // ============================================================
 
 const SUPABASE_URL      = 'https://cmkzcvfjgrgxwqjimtxa.supabase.co';
@@ -756,15 +976,15 @@ const LOCALE = 'es-ES';
 const CURRENCY = 'EUR';
 
 const CATEGORIES = [
-    'súper', 'casa', 'coche', 'comer fuera',
-    'ocio', 'viajes', 'salud', 'niños', 'otros',
+    'súper', 'casa', 'coche', 'comer fuera', 'alojamiento',
+    'transporte', 'ocio', 'viajes', 'salud', 'niños', 'otros',
 ];
 
 // El saldo con el que el fiel de la balanza llega al extremo.
 const TOPE_FIEL = 300;
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
 // ------------------------------------------------------------
@@ -775,6 +995,8 @@ const estado = {
     yo: null,
     otro: null,
     perfiles: [],
+    grupos: [],
+    grupoActivo: null,
     gastos: [],
     liquidaciones: [],
     cola: [],
@@ -785,6 +1007,8 @@ const estado = {
 
 const CLAVE_CACHE = 'gastos.cache';
 const CLAVE_COLA = 'gastos.cola';
+const CLAVE_GRUPO = 'gastos.grupo';
+const CLAVE_CORREO = 'gastos.correo';
 
 // ------------------------------------------------------------
 //  Utilidades
@@ -856,12 +1080,13 @@ function mostrarAviso(elemento, texto) {
 }
 
 // ------------------------------------------------------------
-//  Copia local (para arrancar sin conexión)
+//  Copia local
 // ------------------------------------------------------------
 function guardarCache() {
     try {
         localStorage.setItem(CLAVE_CACHE, JSON.stringify({
             perfiles: estado.perfiles,
+            grupos: estado.grupos,
             gastos: estado.gastos.filter((g) => !g.pendiente),
             liquidaciones: estado.liquidaciones.filter((l) => !l.pendiente),
         }));
@@ -876,9 +1101,11 @@ function leerCache() {
         if (!bruto) return false;
         const datos = JSON.parse(bruto);
         estado.perfiles = datos.perfiles || [];
+        estado.grupos = datos.grupos || [];
         estado.gastos = datos.gastos || [];
         estado.liquidaciones = datos.liquidaciones || [];
         repartirPerfiles();
+        elegirGrupoInicial();
         return true;
     } catch {
         return false;
@@ -917,6 +1144,23 @@ function pintarModoAcceso() {
     mostrarAviso($('avisoAcceso'), '');
 }
 
+async function accederConGoogle() {
+    if (!navigator.onLine) {
+        mostrarAviso($('avisoAcceso'), 'Para entrar hace falta conexión.');
+        return;
+    }
+    try {
+        const destino = window.location.href.split('#')[0].split('?')[0];
+        const { error } = await sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: destino },
+        });
+        if (error) throw error;
+    } catch (error) {
+        mostrarAviso($('avisoAcceso'), traducirError(error));
+    }
+}
+
 async function acceder() {
     const correo = $('entradaCorreo').value.trim();
     const clave = $('entradaClave').value;
@@ -951,6 +1195,8 @@ async function acceder() {
             const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
             if (error) throw error;
         }
+        // Para no volver a escribirlo la próxima vez.
+        try { localStorage.setItem(CLAVE_CORREO, correo); } catch {}
     } catch (error) {
         mostrarAviso($('avisoAcceso'), traducirError(error));
     } finally {
@@ -965,6 +1211,7 @@ function traducirError(error) {
     if (m.includes('password should be')) return 'La contraseña necesita al menos 6 caracteres.';
     if (m.includes('email not confirmed')) return 'Confirma el correo desde el enlace que te ha llegado.';
     if (m.includes('signups not allowed')) return 'El alta de cuentas nuevas está cerrada en Supabase.';
+    if (m.includes('provider is not enabled')) return 'Google todavía no está activado en Supabase.';
     if (m.includes('failed to fetch')) return 'Sin conexión con el servidor. Revisa la red.';
     return error?.message || 'Algo ha fallado. Inténtalo otra vez.';
 }
@@ -972,6 +1219,7 @@ function traducirError(error) {
 async function salir() {
     await sb.auth.signOut();
     localStorage.removeItem(CLAVE_CACHE);
+    // El correo se queda guardado a propósito, para no reescribirlo.
     location.reload();
 }
 
@@ -992,31 +1240,62 @@ function otroId(id) {
     return estado.perfiles.find((p) => p.id !== id)?.id;
 }
 
+function grupo(id) {
+    return estado.grupos.find((g) => String(g.id) === String(id));
+}
+
+function elegirGrupoInicial() {
+    const guardado = localStorage.getItem(CLAVE_GRUPO);
+    if (guardado && grupo(guardado)) {
+        estado.grupoActivo = guardado;
+        return;
+    }
+    estado.grupoActivo = estado.grupos[0]?.id || null;
+}
+
+function fijarGrupo(id) {
+    estado.grupoActivo = id;
+    try { localStorage.setItem(CLAVE_GRUPO, id); } catch {}
+    pintar();
+}
+
+// Movimientos del grupo activo.
+function gastosDelGrupo() {
+    return estado.gastos.filter((g) => String(g.group_id) === String(estado.grupoActivo));
+}
+
+function liquidacionesDelGrupo() {
+    return estado.liquidaciones.filter((l) => String(l.group_id) === String(estado.grupoActivo));
+}
+
 async function cargarTodo() {
-    const [perfiles, gastos, liquidaciones] = await Promise.all([
+    const [perfiles, grupos, gastos, liquidaciones] = await Promise.all([
         sb.from('profiles').select('*').order('created_at'),
+        sb.from('groups').select('*').order('created_at'),
         sb.from('expenses').select('*').order('spent_on', { ascending: false })
-          .order('created_at', { ascending: false }).limit(500),
-        sb.from('settlements').select('*').order('settled_on', { ascending: false }).limit(200),
+          .order('created_at', { ascending: false }).limit(2000),
+        sb.from('settlements').select('*').order('settled_on', { ascending: false }).limit(500),
     ]);
 
-    if (perfiles.error || gastos.error || liquidaciones.error) {
-        throw perfiles.error || gastos.error || liquidaciones.error;
-    }
+    const fallo = perfiles.error || grupos.error || gastos.error || liquidaciones.error;
+    if (fallo) throw fallo;
 
     estado.perfiles = perfiles.data;
+    estado.grupos = grupos.data;
     estado.gastos = gastos.data;
     estado.liquidaciones = liquidaciones.data;
 
     repartirPerfiles();
+    if (!grupo(estado.grupoActivo)) elegirGrupoInicial();
     reponerPendientes();
     guardarCache();
 }
 
-// Reinserta en la vista lo que sigue en la cola, para que un gasto
-// apuntado sin cobertura no desaparezca al refrescar.
+// Reinserta lo que sigue en la cola, para que un gasto apuntado
+// sin cobertura no desaparezca al refrescar.
 function reponerPendientes() {
     for (const tarea of estado.cola) {
+        if (tarea.tabla === 'groups') continue;
         const lista = tarea.tabla === 'expenses' ? estado.gastos : estado.liquidaciones;
         if (!lista.some((f) => f.client_id === tarea.fila.client_id)) {
             lista.push({ ...tarea.fila, id: tarea.fila.client_id, pendiente: true });
@@ -1071,7 +1350,7 @@ async function refrescar() {
 }
 
 // ------------------------------------------------------------
-//  Balance
+//  Balance del grupo activo
 //  Por cada gasto, quien no pagó debe importe × (1 − payer_share).
 //  Las liquidaciones restan de esa deuda.
 // ------------------------------------------------------------
@@ -1079,7 +1358,7 @@ function calcularSaldo() {
     const neto = {};
     for (const p of estado.perfiles) neto[p.id] = 0;
 
-    for (const g of estado.gastos) {
+    for (const g of gastosDelGrupo()) {
         const deuda = Number(g.amount) * (1 - Number(g.payer_share));
         const otro = estado.perfiles.find((p) => p.id !== g.paid_by);
         if (!otro) continue;
@@ -1087,7 +1366,7 @@ function calcularSaldo() {
         neto[otro.id] = (neto[otro.id] || 0) - deuda;
     }
 
-    for (const l of estado.liquidaciones) {
+    for (const l of liquidacionesDelGrupo()) {
         neto[l.from_user] = (neto[l.from_user] || 0) + Number(l.amount);
         neto[l.to_user] = (neto[l.to_user] || 0) - Number(l.amount);
     }
@@ -1099,9 +1378,34 @@ function calcularSaldo() {
 //  Pintado
 // ------------------------------------------------------------
 function pintar() {
+    pintarGrupos();
     pintarSaldo();
     pintarLista();
     pintarEstado();
+}
+
+function pintarGrupos() {
+    const caja = $('grupos');
+    caja.innerHTML = '';
+
+    for (const g of estado.grupos) {
+        const b = document.createElement('button');
+        b.className = 'grupo';
+        b.textContent = g.name;
+        b.setAttribute('aria-current', String(String(g.id) === String(estado.grupoActivo)));
+        b.addEventListener('click', () => fijarGrupo(g.id));
+        caja.appendChild(b);
+    }
+
+    const gestion = document.createElement('button');
+    gestion.className = 'grupo grupo--gestion';
+    gestion.textContent = estado.grupos.length ? '+ Grupo' : '+ Crear grupo';
+    gestion.addEventListener('click', abrirHojaGrupos);
+    caja.appendChild(gestion);
+
+    // Deja a la vista el grupo activo.
+    const activo = caja.querySelector('[aria-current="true"]');
+    if (activo) activo.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
 function pintarSaldo() {
@@ -1109,7 +1413,9 @@ function pintarSaldo() {
     const cifra = $('saldoCifra');
     const frase = $('saldoFrase');
     const barra = $('fielBarra');
+    const g = grupo(estado.grupoActivo);
 
+    $('saldoRotulo').textContent = g ? 'Saldo · ' + g.name : 'Saldo';
     cifra.textContent = formatoDinero(Math.abs(saldo));
 
     const nombreOtro = estado.otro?.display_name;
@@ -1118,6 +1424,13 @@ function pintarSaldo() {
 
     $('fielIzquierda').textContent = estado.yo?.display_name || '—';
     $('fielDerecha').textContent = nombreOtro || 'Falta la 2ª cuenta';
+
+    if (!g) {
+        frase.innerHTML = 'Crea un grupo para empezar a apuntar gastos.';
+        cifra.style.color = '';
+        barra.style.width = '0';
+        return;
+    }
 
     if (!estado.otro) {
         frase.innerHTML = 'Cuando la otra persona cree su cuenta, aquí aparecerá el reparto.';
@@ -1155,18 +1468,27 @@ function pintarLista() {
     const lista = $('lista');
 
     const movimientos = [
-        ...estado.gastos.map((g) => ({ ...g, tipo: 'gasto', fecha: g.spent_on })),
-        ...estado.liquidaciones.map((l) => ({ ...l, tipo: 'liquidacion', fecha: l.settled_on })),
+        ...gastosDelGrupo().map((g) => ({ ...g, tipo: 'gasto', fecha: g.spent_on })),
+        ...liquidacionesDelGrupo().map((l) => ({ ...l, tipo: 'liquidacion', fecha: l.settled_on })),
     ].sort((a, b) => {
         if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
         return (a.created_at || '') < (b.created_at || '') ? 1 : -1;
     });
 
+    if (!estado.grupos.length) {
+        lista.innerHTML =
+            '<div class="vacio">' +
+            '<p class="vacio__titulo">Todavía no hay ningún grupo</p>' +
+            '<p>Crea uno arriba para empezar. Por ejemplo, el viaje en el que estéis.</p>' +
+            '</div>';
+        return;
+    }
+
     if (!movimientos.length) {
         lista.innerHTML =
             '<div class="vacio">' +
-            '<p class="vacio__titulo">Todavía no hay nada apuntado</p>' +
-            '<p>Empieza por el primer gasto y el saldo se calcula solo.</p>' +
+            '<p class="vacio__titulo">Este grupo está vacío</p>' +
+            '<p>Apunta el primer gasto y el saldo se calcula solo.</p>' +
             '</div>';
         return;
     }
@@ -1243,6 +1565,398 @@ function pintarEstado() {
     }
 
     barra.classList.add('oculto');
+}
+
+// ------------------------------------------------------------
+//  Hoja de grupos
+// ------------------------------------------------------------
+function abrirHojaGrupos() {
+    mostrarAviso($('avisoGrupos'), '');
+    $('entradaGrupoNuevo').value = '';
+    pintarListaGrupos();
+    $('veloGrupos').classList.remove('oculto');
+    setTimeout(() => $('entradaGrupoNuevo').focus(), 120);
+}
+
+function pintarListaGrupos() {
+    const caja = $('listaGrupos');
+    caja.innerHTML = '';
+
+    if (!estado.grupos.length) {
+        const p = document.createElement('p');
+        p.style.color = 'var(--tiza)';
+        p.style.margin = '0 0 18px';
+        p.textContent = 'Todavía no hay ninguno.';
+        caja.appendChild(p);
+        return;
+    }
+
+    for (const g of estado.grupos) {
+        const cuantos = estado.gastos.filter((x) => String(x.group_id) === String(g.id)).length;
+
+        const ficha = document.createElement('div');
+        ficha.className = 'ficha';
+
+        const nombre = document.createElement('span');
+        nombre.className = 'ficha__nombre';
+        nombre.textContent = g.name;
+        const cuenta = document.createElement('span');
+        cuenta.className = 'ficha__cuenta';
+        cuenta.textContent = ' · ' + cuantos + (cuantos === 1 ? ' gasto' : ' gastos');
+        nombre.appendChild(cuenta);
+
+        const renombrar = document.createElement('button');
+        renombrar.className = 'ficha__accion';
+        renombrar.textContent = 'Renombrar';
+        renombrar.addEventListener('click', () => renombrarGrupo(g));
+
+        const borrar = document.createElement('button');
+        borrar.className = 'ficha__accion ficha__accion--peligro';
+        borrar.textContent = 'Borrar';
+        borrar.addEventListener('click', () => borrarGrupo(g, cuantos));
+
+        ficha.appendChild(nombre);
+        ficha.appendChild(renombrar);
+        ficha.appendChild(borrar);
+        caja.appendChild(ficha);
+    }
+}
+
+async function crearGrupo() {
+    const nombre = $('entradaGrupoNuevo').value.trim();
+
+    if (!nombre) {
+        mostrarAviso($('avisoGrupos'), 'Ponle un nombre al grupo.');
+        return;
+    }
+    if (!navigator.onLine) {
+        mostrarAviso($('avisoGrupos'), 'Para crear un grupo hace falta conexión.');
+        return;
+    }
+
+    $('botonCrearGrupo').disabled = true;
+
+    try {
+        const { data, error } = await sb.from('groups')
+            .insert({ name: nombre }).select().single();
+        if (error) throw error;
+
+        estado.grupos.push(data);
+        fijarGrupo(data.id);
+        $('entradaGrupoNuevo').value = '';
+        pintarListaGrupos();
+        recado('Grupo "' + data.name + '" creado');
+        guardarCache();
+    } catch (error) {
+        mostrarAviso($('avisoGrupos'), traducirError(error));
+    } finally {
+        $('botonCrearGrupo').disabled = false;
+    }
+}
+
+async function renombrarGrupo(g) {
+    const nombre = prompt('Nombre del grupo:', g.name);
+    if (nombre === null) return;
+
+    const limpio = nombre.trim();
+    if (!limpio) {
+        mostrarAviso($('avisoGrupos'), 'El nombre no puede quedar vacío.');
+        return;
+    }
+
+    try {
+        const { error } = await sb.from('groups').update({ name: limpio }).eq('id', g.id);
+        if (error) throw error;
+        recado('Grupo renombrado');
+        await refrescar();
+        pintarListaGrupos();
+    } catch (error) {
+        mostrarAviso($('avisoGrupos'), traducirError(error));
+    }
+}
+
+async function borrarGrupo(g, cuantos) {
+    const aviso = cuantos
+        ? '¿Borrar "' + g.name + '"? Se borrarán también sus ' + cuantos + ' gasto(s). No se puede deshacer.'
+        : '¿Borrar "' + g.name + '"?';
+    if (!confirm(aviso)) return;
+
+    try {
+        const { error } = await sb.from('groups').delete().eq('id', g.id);
+        if (error) throw error;
+
+        if (String(estado.grupoActivo) === String(g.id)) estado.grupoActivo = null;
+        recado('Grupo borrado');
+        await refrescar();
+        if (!grupo(estado.grupoActivo)) elegirGrupoInicial();
+        pintar();
+        pintarListaGrupos();
+    } catch (error) {
+        mostrarAviso($('avisoGrupos'), traducirError(error));
+    }
+}
+
+// ------------------------------------------------------------
+//  Dictado
+//  Convierte una frase suelta en los campos del gasto.
+//  Ejemplos que entiende:
+//    "23,50 cena en Liubliana pagó Pilar"
+//    "40 euros con 20 hotel a medias"
+//    "12 taxi ayer solo mío"
+// ------------------------------------------------------------
+
+// Palabras que apuntan a una categoría sin nombrarla.
+const PISTAS_CATEGORIA = {
+    'súper':       ['supermercado', 'compra', 'mercadona', 'mercado', 'súper', 'super'],
+    'comer fuera': ['cena', 'cenar', 'comida', 'comer', 'desayuno', 'almuerzo',
+                    'restaurante', 'bar', 'café', 'cafe', 'copas', 'menú', 'menu'],
+    'alojamiento': ['hotel', 'apartamento', 'airbnb', 'hostal', 'noche', 'alojamiento'],
+    'transporte':  ['taxi', 'tren', 'bus', 'autobús', 'autobus', 'metro', 'billete',
+                    'billetes', 'gasolina', 'peaje', 'parking', 'aparcamiento', 'vuelo'],
+    'ocio':        ['entradas', 'entrada', 'museo', 'cine', 'concierto', 'excursión',
+                    'excursion', 'visita', 'teatro'],
+    'salud':       ['farmacia', 'médico', 'medico', 'medicinas'],
+    'coche':       ['coche', 'taller', 'itv'],
+    'casa':        ['luz', 'agua', 'internet', 'alquiler', 'ferretería', 'ferreteria'],
+    'niños':       ['niños', 'ninos', 'guardería', 'guarderia', 'colegio'],
+};
+
+function escaparRegex(t) {
+    return String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Quita la primera aparición de un fragmento, sin distinguir mayúsculas.
+function quitarFragmento(texto, fragmento) {
+    if (!fragmento) return texto;
+    const i = texto.toLowerCase().indexOf(String(fragmento).toLowerCase());
+    if (i === -1) return texto;
+    return texto.slice(0, i) + ' ' + texto.slice(i + fragmento.length);
+}
+
+function interpretarDictado(bruto) {
+    const original = String(bruto || '').trim();
+    if (!original) return null;
+
+    const r = { asume: 'ambos' };
+    let resto = original;
+    const bajo = original.toLowerCase();
+
+    // --- Importe ---
+    const patronesImporte = [
+        /(\d+)\s*(?:euros?|€)\s*(?:con|y)\s*(\d{1,2})\b/,
+        /(\d+)\s*[.,]\s*(\d{1,2})\b/,
+        /(\d+)\s*(?:euros?|€)/,
+        /\b(\d+)\b/,
+    ];
+
+    for (const p of patronesImporte) {
+        const m = bajo.match(p);
+        if (!m) continue;
+        const enteros = Number(m[1]);
+        const centimos = m[2] ? Number(String(m[2]).padEnd(2, '0')) : 0;
+        r.importe = Math.round((enteros + centimos / 100) * 100) / 100;
+        resto = quitarFragmento(resto, m[0]);
+        break;
+    }
+
+    // Restos del símbolo o la palabra "euros" sueltos.
+    resto = resto.replace(/\b(euros?)\b/gi, ' ').replace(/€/g, ' ');
+
+    // --- Fecha ---
+    if (/\bayer\b/i.test(resto)) {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        r.fecha = d.toISOString().slice(0, 10);
+        resto = resto.replace(/\bayer\b/i, ' ');
+    } else if (/\bhoy\b/i.test(resto)) {
+        r.fecha = hoyISO();
+        resto = resto.replace(/\bhoy\b/i, ' ');
+    }
+
+    // --- Quién pagó ---
+    // Ojo: \b no marca final de palabra detrás de una vocal acentuada,
+    // así que el cierre se hace con un "no viene otra letra".
+    const FIN = '(?![a-záéíóúüñ])';
+
+    const yoPague = resto.match(new RegExp('\\b(pagu[eé]|he pagado|pago yo|invito yo|invit[eé])' + FIN, 'i'));
+    if (yoPague) {
+        r.pagador = estado.yo?.id;
+        resto = quitarFragmento(resto, yoPague[0]);
+    } else {
+        for (const p of estado.perfiles) {
+            const n = escaparRegex(p.display_name);
+            const detras = resto.match(new RegExp('\\b(pag[oó]|paga|invit[oó])\\s+' + n + FIN, 'i'));
+            const delante = resto.match(new RegExp('\\b' + n + '\\s+(pag[oó]|paga|invit[oó])' + FIN, 'i'));
+            const encontrado = detras || delante;
+            if (encontrado) {
+                r.pagador = p.id;
+                resto = quitarFragmento(resto, encontrado[0]);
+                break;
+            }
+        }
+    }
+
+    // --- Reparto ---
+    if (/\b(a medias|mitad y mitad|entre los dos|entre las dos|al 50)\b/i.test(resto)) {
+        r.asume = 'ambos';
+        resto = resto.replace(/\b(a medias|mitad y mitad|entre los dos|entre las dos|al 50)\b/i, ' ');
+    } else {
+        const soloMio = resto.match(/\b(solo (para )?m[ií]o?|s[oó]lo (para )?m[ií]o?|solo para m[ií]|es m[ií]o|para m[ií] solo)\b/i);
+        if (soloMio) {
+            r.asume = estado.yo?.id;
+            resto = quitarFragmento(resto, soloMio[0]);
+        } else {
+            for (const p of estado.perfiles) {
+                const n = escaparRegex(p.display_name);
+                const m = resto.match(new RegExp('\\b(s[oó]lo\\s+(para\\s+|de\\s+)?|es de\\s+|para\\s+)' + n + '\\b', 'i'));
+                if (m) {
+                    r.asume = p.id;
+                    resto = quitarFragmento(resto, m[0]);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Restos de la palabra "pagó" sin nombre detrás.
+    resto = resto.replace(new RegExp('\\b(pag[oó]|paga|pagu[eé])' + FIN, 'gi'), ' ');
+    resto = resto.replace(/\byo\b/gi, ' ');
+
+    // --- Categoría ---
+    const limpioBajo = resto.toLowerCase();
+    for (const [categoria, pistas] of Object.entries(PISTAS_CATEGORIA)) {
+        if (!CATEGORIES.includes(categoria)) continue;
+        if (pistas.some((pista) => new RegExp('\\b' + escaparRegex(pista) + FIN, 'i').test(limpioBajo))) {
+            r.categoria = categoria;
+            break;
+        }
+    }
+    if (!r.categoria) {
+        const directa = CATEGORIES.find((c) =>
+            new RegExp('\\b' + escaparRegex(c) + FIN, 'i').test(limpioBajo));
+        if (directa) r.categoria = directa;
+    }
+
+    // --- Concepto: lo que sobra ---
+    let concepto = resto
+        .replace(/\s+/g, ' ')
+        .replace(/^[\s,.;:·-]+|[\s,.;:·-]+$/g, '')
+        .replace(/^(de|en|para|por|y|el|la|los|las)\s+/i, '')
+        .trim();
+
+    if (concepto) {
+        r.concepto = concepto.charAt(0).toUpperCase() + concepto.slice(1);
+    } else if (r.categoria) {
+        r.concepto = r.categoria.charAt(0).toUpperCase() + r.categoria.slice(1);
+    }
+
+    return r;
+}
+
+// Vuelca lo interpretado en los campos de la hoja.
+function aplicarDictado(texto) {
+    const r = interpretarDictado(texto);
+    if (!r) return;
+
+    const puestos = [];
+
+    if (Number.isFinite(r.importe) && r.importe > 0) {
+        $('entradaImporte').value = r.importe.toFixed(2).replace('.', ',');
+        puestos.push('importe');
+    }
+    if (r.concepto) {
+        $('entradaConcepto').value = r.concepto;
+        puestos.push('concepto');
+    }
+    if (r.categoria) {
+        $('entradaCategoria').value = r.categoria;
+        puestos.push('categoría');
+    }
+    if (r.fecha) {
+        $('entradaFecha').value = r.fecha;
+        puestos.push('fecha');
+    }
+    if (r.pagador) {
+        estado.formulario.pagador = r.pagador;
+        puestos.push('quién pagó');
+    }
+
+    // El reparto se guarda respecto de quien pagó.
+    if (r.asume === 'ambos') {
+        estado.formulario.reparto = 0.5;
+    } else if (r.asume === estado.formulario.pagador) {
+        estado.formulario.reparto = 1;
+        puestos.push('reparto');
+    } else if (r.asume) {
+        estado.formulario.reparto = 0;
+        puestos.push('reparto');
+    }
+
+    pintarOpcionesPagador();
+    pintarOpcionesReparto();
+
+    if (puestos.length) {
+        recado('Listo: ' + puestos.join(', ') + '. Revísalo antes de guardar.');
+    } else {
+        recado('No he sacado nada de ahí. Prueba con el importe primero.');
+    }
+}
+
+// Micrófono del navegador, cuando el dispositivo lo permite.
+const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
+let escucha = null;
+
+function prepararMicro() {
+    const boton = $('botonMicro');
+
+    if (!Reconocimiento) {
+        // Sin API de voz, el micro del teclado sigue sirviendo.
+        boton.classList.add('oculto');
+        $('pistaDictado').textContent =
+            'Pulsa el micro del teclado y di el importe, en qué fue y quién pagó.';
+        return;
+    }
+
+    boton.addEventListener('click', () => {
+        if (escucha) {
+            escucha.stop();
+            return;
+        }
+
+        escucha = new Reconocimiento();
+        escucha.lang = 'es-ES';
+        escucha.interimResults = false;
+        escucha.maxAlternatives = 1;
+
+        escucha.onstart = () => boton.setAttribute('data-escuchando', 'true');
+
+        escucha.onresult = (e) => {
+            const texto = e.results[0][0].transcript;
+            $('entradaDictado').value = texto;
+            aplicarDictado(texto);
+        };
+
+        escucha.onerror = (e) => {
+            if (e.error === 'not-allowed') {
+                recado('Falta permiso del micrófono. Usa el micro del teclado.');
+            } else if (e.error !== 'aborted') {
+                recado('No he podido escuchar. Prueba con el micro del teclado.');
+            }
+        };
+
+        escucha.onend = () => {
+            boton.removeAttribute('data-escuchando');
+            escucha = null;
+        };
+
+        try {
+            escucha.start();
+        } catch {
+            escucha = null;
+            boton.removeAttribute('data-escuchando');
+        }
+    });
 }
 
 // ------------------------------------------------------------
@@ -1325,13 +2039,23 @@ function pintarOpcionesReparto() {
 }
 
 function pintarCategorias() {
-    const select = $('entradaCategoria');
-    select.innerHTML = CATEGORIES
+    $('entradaCategoria').innerHTML = CATEGORIES
         .map((c) => '<option value="' + escapar(c) + '">' + escapar(c) + '</option>')
         .join('');
 }
 
+function pintarSelectorGrupo() {
+    $('entradaGrupo').innerHTML = estado.grupos
+        .map((g) => '<option value="' + escapar(g.id) + '">' + escapar(g.name) + '</option>')
+        .join('');
+}
+
 function abrirHojaGasto(id) {
+    if (!estado.grupos.length) {
+        recado('Crea primero un grupo');
+        abrirHojaGrupos();
+        return;
+    }
     if (!estado.otro) {
         recado('Falta que la otra persona cree su cuenta');
         return;
@@ -1339,8 +2063,14 @@ function abrirHojaGasto(id) {
 
     mostrarAviso($('avisoGasto'), '');
     estado.editando = id || null;
+    pintarSelectorGrupo();
+    $('entradaDictado').value = '';
 
     const gasto = id ? estado.gastos.find((g) => String(g.id) === String(id)) : null;
+
+    // El dictado solo tiene sentido al crear, no al corregir.
+    $('entradaDictado').parentElement.classList.toggle('oculto', Boolean(gasto));
+    $('pistaDictado').classList.toggle('oculto', Boolean(gasto));
 
     if (gasto) {
         $('tituloGasto').textContent = 'Editar gasto';
@@ -1348,6 +2078,7 @@ function abrirHojaGasto(id) {
         $('entradaConcepto').value = gasto.description;
         $('entradaCategoria').value = gasto.category;
         $('entradaFecha').value = gasto.spent_on;
+        $('entradaGrupo').value = gasto.group_id;
         estado.formulario.pagador = gasto.paid_by;
 
         const s = Number(gasto.payer_share);
@@ -1364,6 +2095,7 @@ function abrirHojaGasto(id) {
         $('entradaConcepto').value = '';
         $('entradaCategoria').value = CATEGORIES[0];
         $('entradaFecha').value = hoyISO();
+        $('entradaGrupo').value = estado.grupoActivo;
         estado.formulario.pagador = estado.yo?.id;
         estado.formulario.reparto = 0.5;
         $('botonBorrarGasto').classList.add('oculto');
@@ -1407,6 +2139,7 @@ async function guardarGasto() {
     }
 
     const fila = {
+        group_id: $('entradaGrupo').value,
         paid_by: estado.formulario.pagador,
         amount: importe,
         description: concepto,
@@ -1471,6 +2204,10 @@ async function borrarGasto() {
 //  Hoja de liquidación
 // ------------------------------------------------------------
 function abrirHojaLiquidar() {
+    if (!grupo(estado.grupoActivo)) {
+        recado('Crea primero un grupo');
+        return;
+    }
     if (!estado.otro) {
         recado('Falta que la otra persona cree su cuenta');
         return;
@@ -1478,6 +2215,7 @@ function abrirHojaLiquidar() {
 
     const saldo = calcularSaldo();
     mostrarAviso($('avisoLiquidar'), '');
+    $('tituloLiquidar').textContent = 'Saldar · ' + grupo(estado.grupoActivo).name;
 
     if (Math.abs(saldo) < 0.005) {
         $('resumenLiquidar').innerHTML =
@@ -1513,6 +2251,7 @@ async function guardarLiquidacion() {
     const cobra = saldo > 0 ? estado.yo.id : estado.otro.id;
 
     const fila = {
+        group_id: estado.grupoActivo,
         from_user: paga,
         to_user: cobra,
         amount: importe,
@@ -1559,6 +2298,7 @@ function escucharCambios() {
     canal = sb.channel('gastos-compartidos')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, refrescar)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'settlements' }, refrescar)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, refrescar)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refrescar)
         .subscribe();
 }
@@ -1567,18 +2307,29 @@ function escucharCambios() {
 //  Arranque
 // ------------------------------------------------------------
 function conectarEventos() {
-    $('botonAcceder').addEventListener('click', acceder);
+    $('botonGoogle').addEventListener('click', accederConGoogle);
+    $('formAcceso').addEventListener('submit', (e) => {
+        e.preventDefault();
+        acceder();
+    });
     $('botonCambiarModo').addEventListener('click', () => {
         estado.modoAlta = !estado.modoAlta;
         pintarModoAcceso();
-    });
-    $('entradaClave').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') acceder();
     });
 
     $('botonSalir').addEventListener('click', salir);
     $('botonNuevoGasto').addEventListener('click', () => abrirHojaGasto(null));
     $('botonLiquidar').addEventListener('click', abrirHojaLiquidar);
+
+    // Al terminar de dictar (o al salir del campo) se reparten los datos.
+    $('entradaDictado').addEventListener('change', (e) => aplicarDictado(e.target.value));
+    $('entradaDictado').addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        e.target.blur();
+        aplicarDictado(e.target.value);
+    });
+    prepararMicro();
 
     $('botonGuardarGasto').addEventListener('click', guardarGasto);
     $('botonBorrarGasto').addEventListener('click', borrarGasto);
@@ -1587,7 +2338,13 @@ function conectarEventos() {
     $('botonGuardarLiquidar').addEventListener('click', guardarLiquidacion);
     $('botonCerrarLiquidar').addEventListener('click', () => $('veloLiquidar').classList.add('oculto'));
 
-    for (const idVelo of ['veloGasto', 'veloLiquidar']) {
+    $('botonCrearGrupo').addEventListener('click', crearGrupo);
+    $('entradaGrupoNuevo').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') crearGrupo();
+    });
+    $('botonCerrarGrupos').addEventListener('click', () => $('veloGrupos').classList.add('oculto'));
+
+    for (const idVelo of ['veloGasto', 'veloLiquidar', 'veloGrupos']) {
         $(idVelo).addEventListener('click', (e) => {
             if (e.target.id === idVelo) $(idVelo).classList.add('oculto');
         });
@@ -1597,6 +2354,7 @@ function conectarEventos() {
         if (e.key !== 'Escape') return;
         $('veloGasto').classList.add('oculto');
         $('veloLiquidar').classList.add('oculto');
+        $('veloGrupos').classList.add('oculto');
     });
 
     window.addEventListener('online', async () => {
@@ -1633,6 +2391,15 @@ async function entrarEnLaApp() {
 function mostrarAcceso() {
     $('pantallaApp').classList.add('oculto');
     $('pantallaAcceso').classList.remove('oculto');
+
+    // Recupera el último correo usado y deja el cursor en la contraseña.
+    try {
+        const recordado = localStorage.getItem(CLAVE_CORREO);
+        if (recordado && !$('entradaCorreo').value) {
+            $('entradaCorreo').value = recordado;
+        }
+    } catch {}
+
     pintarModoAcceso();
 }
 
