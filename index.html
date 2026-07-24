@@ -1417,7 +1417,32 @@ function grupo(id) {
     return estado.grupos.find((g) => String(g.id) === String(id));
 }
 
+// Permite abrir un grupo concreto desde fuera: ?grupo=Eslovenia
+// Si algo falla o el grupo no existe, se ignora y todo sigue igual.
+function grupoDeLaUrl() {
+    try {
+        const q = new URLSearchParams(location.search).get('grupo');
+        if (!q) return null;
+        const limpia = (t) => String(t || '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase().trim();
+        const buscado = limpia(q);
+        if (!buscado) return null;
+        const hallado = estado.grupos.find((g) => limpia(g.name).includes(buscado))
+                     || estado.grupos.find((g) => buscado.includes(limpia(g.name)));
+        return hallado ? hallado.id : null;
+    } catch {
+        return null;
+    }
+}
+
 function elegirGrupoInicial() {
+    const desdeUrl = grupoDeLaUrl();
+    if (desdeUrl) {
+        estado.grupoActivo = desdeUrl;
+        try { localStorage.setItem(CLAVE_GRUPO, desdeUrl); } catch {}
+        return;
+    }
     const guardado = localStorage.getItem(CLAVE_GRUPO);
     if (guardado && grupo(guardado)) {
         estado.grupoActivo = guardado;
