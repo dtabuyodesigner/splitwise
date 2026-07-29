@@ -357,6 +357,45 @@ button { cursor: pointer; border: none; background: none; }
     color: rgba(238, 241, 240, .45);
 }
 
+/* Totales del grupo, bajo la balanza. */
+.totales {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(238, 241, 240, .12);
+}
+
+.total {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.total__cifra {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(17px, 5.2vw, 21px);
+    letter-spacing: -.02em;
+    white-space: nowrap;
+}
+
+.total--mio .total__cifra,
+.total--suyo .total__cifra { color: var(--niebla); }
+
+.total__rotulo {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgba(238, 241, 240, .45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .estado {
     margin: 12px 20px 0;
     padding: 10px 14px;
@@ -931,6 +970,21 @@ button { cursor: pointer; border: none; background: none; }
                 <span id="fielIzquierda">—</span>
                 <span id="fielDerecha">—</span>
             </div>
+
+            <div class="totales" id="totales">
+                <div class="total">
+                    <span class="total__cifra cifra" id="totalGrupo">0,00 €</span>
+                    <span class="total__rotulo">gastado en total</span>
+                </div>
+                <div class="total total--mio">
+                    <span class="total__cifra cifra" id="totalMio">0,00 €</span>
+                    <span class="total__rotulo" id="totalMioRotulo">lo tuyo</span>
+                </div>
+                <div class="total total--suyo">
+                    <span class="total__cifra cifra" id="totalSuyo">0,00 €</span>
+                    <span class="total__rotulo" id="totalSuyoRotulo">lo del otro</span>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -1138,7 +1192,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v12';
+const VERSION_APP = 'v13';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -1417,32 +1471,7 @@ function grupo(id) {
     return estado.grupos.find((g) => String(g.id) === String(id));
 }
 
-// Permite abrir un grupo concreto desde fuera: ?grupo=Eslovenia
-// Si algo falla o el grupo no existe, se ignora y todo sigue igual.
-function grupoDeLaUrl() {
-    try {
-        const q = new URLSearchParams(location.search).get('grupo');
-        if (!q) return null;
-        const limpia = (t) => String(t || '')
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .toLowerCase().trim();
-        const buscado = limpia(q);
-        if (!buscado) return null;
-        const hallado = estado.grupos.find((g) => limpia(g.name).includes(buscado))
-                     || estado.grupos.find((g) => buscado.includes(limpia(g.name)));
-        return hallado ? hallado.id : null;
-    } catch {
-        return null;
-    }
-}
-
 function elegirGrupoInicial() {
-    const desdeUrl = grupoDeLaUrl();
-    if (desdeUrl) {
-        estado.grupoActivo = desdeUrl;
-        try { localStorage.setItem(CLAVE_GRUPO, desdeUrl); } catch {}
-        return;
-    }
     const guardado = localStorage.getItem(CLAVE_GRUPO);
     if (guardado && grupo(guardado)) {
         estado.grupoActivo = guardado;
@@ -1578,6 +1607,7 @@ function calcularSaldo() {
 function pintar() {
     pintarGrupos();
     pintarSaldo();
+    pintarTotales();
     pintarLista();
     pintarEstado();
     pintarNovedades();
@@ -1765,6 +1795,54 @@ function pintarEstado() {
     }
 
     barra.classList.add('oculto');
+}
+
+// Reparte el gasto total del grupo en la parte que asume cada uno,
+// según el reparto de cada gasto (no según quién puso el dinero).
+function totalesDelGrupo() {
+    const gastos = gastosDelGrupo();
+    const total = gastos.reduce((t, g) => t + Number(g.amount), 0);
+
+    const parte = {};
+    for (const p of estado.perfiles) parte[p.id] = 0;
+
+    for (const g of gastos) {
+        const otro = estado.perfiles.find((p) => p.id !== g.paid_by);
+        const share = Number(g.payer_share);
+        parte[g.paid_by] = (parte[g.paid_by] || 0) + Number(g.amount) * share;
+        if (otro) parte[otro.id] = (parte[otro.id] || 0) + Number(g.amount) * (1 - share);
+    }
+
+    return { total, parte };
+}
+
+function pintarTotales() {
+    const caja = $('totales');
+
+    if (!grupo(estado.grupoActivo) || !gastosDelGrupo().length) {
+        caja.classList.add('oculto');
+        return;
+    }
+
+    const { total, parte } = totalesDelGrupo();
+    const colorDe = (p) => p?.color === 'buganvilla' ? '#D98CA8' : '#7FC8B4';
+
+    $('totalGrupo').textContent = formatoDinero(total);
+
+    $('totalMio').textContent = formatoDinero(parte[estado.yo?.id] || 0);
+    $('totalMio').style.color = colorDe(estado.yo);
+    $('totalMioRotulo').textContent = 'te toca';
+
+    if (estado.otro) {
+        $('totalSuyo').textContent = formatoDinero(parte[estado.otro.id] || 0);
+        $('totalSuyo').style.color = colorDe(estado.otro);
+        $('totalSuyoRotulo').textContent = 'a ' + estado.otro.display_name;
+        $('totalSuyo').parentElement.classList.remove('oculto');
+    } else {
+        $('totalSuyo').parentElement.classList.add('oculto');
+    }
+
+    caja.classList.remove('oculto');
 }
 
 // ------------------------------------------------------------
