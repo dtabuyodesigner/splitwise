@@ -978,11 +978,11 @@ button { cursor: pointer; border: none; background: none; }
                 </div>
                 <div class="total total--mio">
                     <span class="total__cifra cifra" id="totalMio">0,00 €</span>
-                    <span class="total__rotulo" id="totalMioRotulo">lo tuyo</span>
+                    <span class="total__rotulo" id="totalMioRotulo">has pagado</span>
                 </div>
                 <div class="total total--suyo">
                     <span class="total__cifra cifra" id="totalSuyo">0,00 €</span>
-                    <span class="total__rotulo" id="totalSuyoRotulo">lo del otro</span>
+                    <span class="total__rotulo" id="totalSuyoRotulo">debes</span>
                 </div>
             </div>
         </div>
@@ -1192,7 +1192,7 @@ const CURRENCY = 'EUR';
 // Versión visible en la app. Súbela junto a la VERSION de sw.js
 // cada vez que cambies algo, y así sabrás de un vistazo si el
 // móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v13';
+const VERSION_APP = 'v14';
 
 // Ponlo en true cuando hayas configurado Google en Supabase
 // (Authentication → Providers → Google). Mientras esté en false,
@@ -1797,23 +1797,22 @@ function pintarEstado() {
     barra.classList.add('oculto');
 }
 
-// Reparte el gasto total del grupo en la parte que asume cada uno,
-// según el reparto de cada gasto (no según quién puso el dinero).
+// Tres cifras del grupo:
+//   total     → todo lo gastado
+//   adelantado → lo que cada uno puso de su bolsillo
+// La deuda entre ambos sale del saldo, que ya tiene en cuenta
+// las liquidaciones.
 function totalesDelGrupo() {
     const gastos = gastosDelGrupo();
     const total = gastos.reduce((t, g) => t + Number(g.amount), 0);
 
-    const parte = {};
-    for (const p of estado.perfiles) parte[p.id] = 0;
-
+    const adelantado = {};
+    for (const p of estado.perfiles) adelantado[p.id] = 0;
     for (const g of gastos) {
-        const otro = estado.perfiles.find((p) => p.id !== g.paid_by);
-        const share = Number(g.payer_share);
-        parte[g.paid_by] = (parte[g.paid_by] || 0) + Number(g.amount) * share;
-        if (otro) parte[otro.id] = (parte[otro.id] || 0) + Number(g.amount) * (1 - share);
+        adelantado[g.paid_by] = (adelantado[g.paid_by] || 0) + Number(g.amount);
     }
 
-    return { total, parte };
+    return { total, adelantado };
 }
 
 function pintarTotales() {
@@ -1824,19 +1823,24 @@ function pintarTotales() {
         return;
     }
 
-    const { total, parte } = totalesDelGrupo();
+    const { total, adelantado } = totalesDelGrupo();
     const colorDe = (p) => p?.color === 'buganvilla' ? '#D98CA8' : '#7FC8B4';
 
     $('totalGrupo').textContent = formatoDinero(total);
 
-    $('totalMio').textContent = formatoDinero(parte[estado.yo?.id] || 0);
+    // Lo que tú has adelantado.
+    $('totalMio').textContent = formatoDinero(adelantado[estado.yo?.id] || 0);
     $('totalMio').style.color = colorDe(estado.yo);
-    $('totalMioRotulo').textContent = 'te toca';
+    $('totalMioRotulo').textContent = 'has pagado';
 
+    // La deuda real, con el signo del saldo:
+    //   saldo < 0 → debes;  saldo > 0 → te deben;  0 → en paz.
     if (estado.otro) {
-        $('totalSuyo').textContent = formatoDinero(parte[estado.otro.id] || 0);
-        $('totalSuyo').style.color = colorDe(estado.otro);
-        $('totalSuyoRotulo').textContent = 'a ' + estado.otro.display_name;
+        const saldo = calcularSaldo();
+        $('totalSuyo').textContent = formatoDinero(Math.abs(saldo));
+        $('totalSuyoRotulo').textContent =
+            Math.abs(saldo) < 0.005 ? 'en paz' : saldo < 0 ? 'debes' : 'te deben';
+        $('totalSuyo').style.color = saldo < 0 ? colorDe(estado.otro) : colorDe(estado.yo);
         $('totalSuyo').parentElement.classList.remove('oculto');
     } else {
         $('totalSuyo').parentElement.classList.add('oculto');
