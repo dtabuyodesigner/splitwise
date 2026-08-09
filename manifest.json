@@ -1,22 +1,38 @@
 {
-    "name": "Gastos de casa",
+    "name": "Gastos compartidos",
     "short_name": "Gastos",
     "description": "Lo que pone cada uno y lo que queda por saldar.",
     "start_url": "./index.html",
     "scope": "./",
     "display": "standalone",
     "orientation": "portrait",
-    "background_color": "#EEF1F0",
+    "background_color": "#14201F",
     "theme_color": "#14201F",
     "lang": "es",
     "dir": "ltr",
     "categories": ["finance", "productivity"],
+    "shortcuts": [
+        {
+            "name": "Añadir gasto",
+            "short_name": "Nuevo gasto",
+            "description": "Registra un nuevo gasto compartido",
+            "url": "./index.html?accion=nuevo-gasto",
+            "icons": [{ "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=", "sizes": "192x192" }]
+        },
+        {
+            "name": "Saldar cuentas",
+            "short_name": "Saldar",
+            "description": "Registra un pago para saldar el balance",
+            "url": "./index.html?accion=saldar",
+            "icons": [{ "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=", "sizes": "192x192" }]
+        }
+    ],
     "icons": [
         {
             "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEXAyscwcmAwb14vb16VPV+QO1yOO1tJW1k4LzYVIiEVICAUICAUIB8SIB4QHxwOGRiHxYulAAAC6klEQVR42u3bPWgUQRQA4NmJsbtlLxFEPfb2VvAHIpyaQjAa0ZAihYrgNSJCjLETLbS1EUWrlFYSwUYrsb6IlRbeQS7hLPzZ+5OAHLnsmnQxM/bZnfXtzI5GfSk3t/PdmzfvzQwkRoXo/aEEAQQQQAABBBBAAAEEEEAAAQQQQAABBP57oNqEf3abDDDdbWsFFp/ZtqNxitjETOBrzQHXnWQD6wCB3wsIK3lFXGh5Qnjo19lkAA/2WkIgQ8jg0c1PvwRWAoCvHnoZV8nsU3fzw/6z8xYc+D40wcQt2SH3zVAund6VFhjgI8earisMgBMyEPq23oO+E+BVtPao7cavjXA3de2HDhTgB2cciQW/6wIUWH3uSJXUxzwQMGflamrPKx8E8FxbDmBPgRF0ZdvOugUCgjeOpNDIgwDak+5ssAgM6fHXfWCh/e0bDrdkB+uH5cCUjwpYaOebkuMXWrAcbJccn5VgERh1WzKfGVgOiDkpN0dL56D7QUkqhN7tGhAw6pMNiQzsvGxBCy1TuuU1k10PmEev18CbvrF4h4iPLZRFdDW6f3okiBwr+g83/CPvxSGMHri7O/Tw4nIrwbmIWNUdg8LJLhDSVwxdbbNWomaX5YkagvhsivcDBBD4g7dMT/iGmwrgjQnfKDspAN7Yi150N6WFa+W8MsCGHws3HK9xb0MZ6HivxZfMz09uqK4iNlSOyaRbrqkCdCP2DmXPqk5R+0PsQqHLihGw4wvx75iqU8R9vZXcqVgpAlGH355mANv1FgAMzQAr+HoB+7RmgAR5vQCt/wJYU40gNxV7y2SHlfeDpZMxWeBfbyrXgTdlCgXeGk+0BiL3ZOftcFV0MBo4cymFY0uuaInSQK/OjaoDtLJvXJTiuTQOXsT9URZF4LJUzqbU1VjJuB8g8A8AnMxrBeg7ckq9kmMj+JZdAH/YkPhfKNZZKWoFCKOaVxHFOkAAAQQQQAABBBBAAAEEEEAAAQQQQGCrAj8BVOm5OtRY5EgAAAAASUVORK5CYII=",
             "sizes": "192x192",
             "type": "image/png",
-            "purpose": "any"
+            "purpose": "any maskable"
         }
     ]
 }

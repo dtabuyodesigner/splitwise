@@ -6,7 +6,8 @@
 <title>Gastos compartidos</title>
 
 <meta name="description" content="Gastos compartidos: lo que pone cada uno y lo que queda por saldar.">
-<meta name="theme-color" content="#14201F">
+<meta name="theme-color" content="#14201F" id="metaThemeColor">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gastos">
@@ -17,24 +18,28 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,600;12..96,75..100,800&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,600;12..96,75..100,800&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
 /* ============================================================
    FICHAS DE DISEÑO
-   Paleta tomada del monte de Anaga: bruma, basalto húmedo,
-   laurisilva y buganvilla. Los dos últimos no decoran:
-   identifican a cada persona en toda la app.
+   Paleta inspirada en el monte de Anaga: niebla, basalto húmedo,
+   laurisilva y buganvilla. Con soporte impecable para modo oscuro.
    ============================================================ */
 :root {
-    --niebla:      #EEF1F0;
-    --carta:       #FFFFFF;
-    --basalto:     #14201F;
-    --tiza:        #6F817D;
-    --linea:       #DDE3E1;
+    --niebla:          #EEF1F0;
+    --carta:           #FFFFFF;
+    --carta-sub:       #F8FAFA;
+    --basalto:         #14201F;
+    --basalto-claro:   #1E2E2D;
+    --tiza:            #6F817D;
+    --tiza-suave:      #9BAAA6;
+    --linea:           #DDE3E1;
+    --linea-fina:      rgba(20, 32, 31, .08);
 
-    --laurel:      #2F6F5E;
-    --buganvilla:  #8E3B5B;
+    --laurel:          #2F6F5E;
+    --laurel-suave:    #E5F2EE;
+    --buganvilla:      #8E3B5B;
     --buganvilla-piel: #F6E6EB;
 
     --display: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif;
@@ -44,9 +49,52 @@
     --r-m: 16px;
     --r-l: 24px;
 
-    --sombra: 0 1px 2px rgba(20, 32, 31, .05), 0 8px 24px rgba(20, 32, 31, .06);
+    --sombra: 0 1px 3px rgba(20, 32, 31, .05), 0 8px 24px rgba(20, 32, 31, .06);
+    --sombra-flotante: 0 10px 30px rgba(20, 32, 31, .15);
     --abajo: env(safe-area-inset-bottom, 0px);
     --arriba: env(safe-area-inset-top, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --niebla:          #0F1716;
+        --carta:           #172322;
+        --carta-sub:       #1D2D2B;
+        --basalto:         #EEF1F0;
+        --basalto-claro:   #DDE3E1;
+        --tiza:            #8EA19D;
+        --tiza-suave:      #5B706B;
+        --linea:           #243634;
+        --linea-fina:      rgba(238, 241, 240, .08);
+
+        --laurel:          #4DA891;
+        --laurel-suave:    #16332C;
+        --buganvilla:      #C8668B;
+        --buganvilla-piel: #381926;
+
+        --sombra: 0 2px 6px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .45);
+        --sombra-flotante: 0 12px 36px rgba(0, 0, 0, .6);
+    }
+}
+
+:root[data-theme="dark"] {
+    --niebla:          #0F1716;
+    --carta:           #172322;
+    --carta-sub:       #1D2D2B;
+    --basalto:         #EEF1F0;
+    --basalto-claro:   #DDE3E1;
+    --tiza:            #8EA19D;
+    --tiza-suave:      #5B706B;
+    --linea:           #243634;
+    --linea-fina:      rgba(238, 241, 240, .08);
+
+    --laurel:          #4DA891;
+    --laurel-suave:    #16332C;
+    --buganvilla:      #C8668B;
+    --buganvilla-piel: #381926;
+
+    --sombra: 0 2px 6px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .45);
+    --sombra-flotante: 0 12px 36px rgba(0, 0, 0, .6);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -169,12 +217,14 @@ button { cursor: pointer; border: none; background: none; }
     border: 1px solid var(--linea);
     border-radius: var(--r-s);
     appearance: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 .campo > input:focus,
 .campo > select:focus {
     outline: none;
     border-color: var(--basalto);
+    box-shadow: 0 0 0 3px rgba(47, 111, 94, .15);
 }
 
 .boton {
@@ -185,9 +235,9 @@ button { cursor: pointer; border: none; background: none; }
     border-radius: var(--r-s);
     font-weight: 600;
     letter-spacing: .01em;
-    transition: opacity .15s ease;
+    transition: opacity .15s ease, transform .1s ease;
 }
-.boton:active { opacity: .8; }
+.boton:active { opacity: .85; transform: scale(.99); }
 .boton[disabled] { opacity: .45; cursor: default; }
 
 .boton--tenue {
@@ -215,9 +265,10 @@ button { cursor: pointer; border: none; background: none; }
     background: var(--buganvilla-piel);
     color: var(--buganvilla);
     font-size: 14px;
+    line-height: 1.4;
 }
 
-/* ---------- Estructura ---------- */
+/* ---------- Estructura Principal ---------- */
 .app {
     display: flex;
     flex-direction: column;
@@ -228,14 +279,16 @@ button { cursor: pointer; border: none; background: none; }
 
 .saldo {
     padding: calc(20px + var(--arriba)) 0 24px;
-    background: var(--basalto);
-    color: var(--niebla);
+    background: #14201F;
+    color: #EEF1F0;
     border-radius: 0 0 var(--r-l) var(--r-l);
+    box-shadow: var(--sombra);
+    transition: background-color .2s ease;
 }
 
 .saldo__interior { padding: 0 24px; }
 
-/* Grupos: una fila deslizable de pestañas. */
+/* Grupos: una fila deslizable de pestañas */
 .grupos {
     display: flex;
     gap: 8px;
@@ -250,8 +303,8 @@ button { cursor: pointer; border: none; background: none; }
     flex: none;
     padding: 8px 15px;
     border-radius: 99px;
-    background: rgba(238, 241, 240, .1);
-    color: rgba(238, 241, 240, .7);
+    background: rgba(238, 241, 240, .12);
+    color: rgba(238, 241, 240, .75);
     font-size: 14px;
     font-weight: 600;
     white-space: nowrap;
@@ -259,43 +312,51 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 .grupo[aria-current="true"] {
-    background: var(--niebla);
-    color: var(--basalto);
+    background: #EEF1F0;
+    color: #14201F;
 }
 
 .grupo--gestion {
     background: transparent;
-    border: 1px dashed rgba(238, 241, 240, .3);
+    border: 1px dashed rgba(238, 241, 240, .35);
 }
 
 .saldo__fila {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 14px;
 }
 
-.saldo__rotulo,
-.saldo__salir {
+.saldo__rotulo {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: .14em;
     text-transform: uppercase;
-    color: rgba(238, 241, 240, .55);
+    color: rgba(238, 241, 240, .6);
+    flex: 1;
+    min-width: 0;
 }
-
-.saldo__rotulo { flex: 1; min-width: 0; }
 
 .saldo__version {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: .1em;
-    color: rgba(238, 241, 240, .32);
+    color: rgba(238, 241, 240, .35);
     flex: none;
 }
 
-.saldo__salir { padding: 4px; }
+.saldo__salir {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: rgba(238, 241, 240, .65);
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+.saldo__salir:hover { color: #EEF1F0; }
 
 .saldo__cifra {
     font-family: var(--display);
@@ -310,16 +371,16 @@ button { cursor: pointer; border: none; background: none; }
 .saldo__frase {
     margin: 10px 0 0;
     font-size: 15px;
-    color: rgba(238, 241, 240, .75);
+    color: rgba(238, 241, 240, .8);
 }
-.saldo__frase strong { color: var(--niebla); font-weight: 600; }
+.saldo__frase strong { color: #EEF1F0; font-weight: 600; }
 
-/* Fiel de la balanza: se inclina hacia quien tiene saldo a favor. */
+/* Fiel de la balanza: se inclina hacia quien tiene saldo a favor */
 .fiel {
     position: relative;
     height: 8px;
     margin-top: 22px;
-    background: rgba(238, 241, 240, .12);
+    background: rgba(238, 241, 240, .14);
     border-radius: 99px;
 }
 
@@ -342,7 +403,7 @@ button { cursor: pointer; border: none; background: none; }
     bottom: -4px;
     width: 2px;
     margin-left: -1px;
-    background: rgba(238, 241, 240, .5);
+    background: rgba(238, 241, 240, .55);
     border-radius: 99px;
 }
 
@@ -354,20 +415,20 @@ button { cursor: pointer; border: none; background: none; }
     font-weight: 600;
     letter-spacing: .1em;
     text-transform: uppercase;
-    color: rgba(238, 241, 240, .45);
+    color: rgba(238, 241, 240, .5);
 }
 
-/* Totales del grupo, bajo la balanza. */
+/* Totales del grupo, bajo la balanza */
 .totales {
-    display: flex;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
     margin-top: 22px;
     padding-top: 18px;
-    border-top: 1px solid rgba(238, 241, 240, .12);
+    border-top: 1px solid rgba(238, 241, 240, .14);
 }
 
 .total {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -376,21 +437,23 @@ button { cursor: pointer; border: none; background: none; }
 
 .total__cifra {
     font-family: var(--display);
-    font-weight: 600;
-    font-size: clamp(17px, 5.2vw, 21px);
+    font-weight: 700;
+    font-size: clamp(16px, 4.8vw, 20px);
     letter-spacing: -.02em;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .total--mio .total__cifra,
-.total--suyo .total__cifra { color: var(--niebla); }
+.total--suyo .total__cifra { color: #EEF1F0; }
 
 .total__rotulo {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: .1em;
     text-transform: uppercase;
-    color: rgba(238, 241, 240, .45);
+    color: rgba(238, 241, 240, .5);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -410,14 +473,14 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 .estado__punto {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 99px;
     background: var(--buganvilla);
     flex: none;
 }
 
-/* Aviso de lo que ha pasado desde la última vez. */
+/* Aviso de novedades */
 .novedades {
     display: flex;
     align-items: center;
@@ -436,26 +499,27 @@ button { cursor: pointer; border: none; background: none; }
 
 .novedades__cerrar {
     flex: none;
-    color: rgba(238, 241, 240, .55);
+    color: rgba(238, 241, 240, .6);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: .14em;
     text-transform: uppercase;
 }
 
-/* Acciones secundarias: compartir, exportar e importar. */
+/* Acciones secundarias */
 .utiles {
     display: flex;
     gap: 8px;
-    padding: 18px 20px 0;
+    padding: 16px 20px 0;
     overflow-x: auto;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
 }
 .utiles::-webkit-scrollbar { display: none; }
 
 .util {
     flex: none;
-    padding: 9px 14px;
+    padding: 8px 14px;
     background: var(--carta);
     border: 1px solid var(--linea);
     border-radius: 99px;
@@ -463,68 +527,92 @@ button { cursor: pointer; border: none; background: none; }
     font-weight: 600;
     color: var(--tiza);
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
 }
-.util:active { color: var(--basalto); }
+.util:active { color: var(--basalto); border-color: var(--basalto); }
 
-.campo > textarea {
-    width: 100%;
-    padding: 14px 16px;
+/* Barra de Búsqueda y Filtros */
+.filtro-caja {
+    padding: 14px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filtro-busqueda {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     background: var(--carta);
     border: 1px solid var(--linea);
     border-radius: var(--r-s);
-    font-size: 14px;
-    line-height: 1.4;
-    resize: vertical;
-    appearance: none;
+    padding: 8px 12px;
 }
-.campo > textarea:focus {
-    outline: none;
-    border-color: var(--basalto);
+.filtro-busqueda svg { width: 16px; height: 16px; color: var(--tiza); flex: none; }
+.filtro-busqueda input {
+    flex: 1;
+    border: none;
+    background: none;
+    font-size: 14px;
+    min-width: 0;
+}
+.filtro-busqueda input:focus { outline: none; }
+.filtro-busqueda__limpiar {
+    color: var(--tiza);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 4px;
 }
 
-/* Resultado del análisis del CSV */
-.previo {
-    padding: 14px 16px;
+.filtro-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+}
+.filtro-chips::-webkit-scrollbar { display: none; }
+
+.chip {
+    flex: none;
+    padding: 5px 12px;
+    border-radius: 99px;
     background: var(--carta);
     border: 1px solid var(--linea);
-    border-radius: var(--r-m);
-    margin-bottom: 18px;
-    font-size: 14px;
-}
-
-.previo__cifra {
-    font-family: var(--display);
-    font-size: 24px;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: -.02em;
-    margin: 0 0 2px;
-}
-
-.previo__nota { color: var(--tiza); margin: 0; }
-
-.previo__lista {
-    margin: 12px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: 13px;
     color: var(--tiza);
+    white-space: nowrap;
 }
-.previo__lista li { padding: 3px 0; border-top: 1px solid var(--linea); }
-.previo__lista li:first-child { border-top: none; }
+.chip[aria-pressed="true"] {
+    background: var(--basalto);
+    border-color: var(--basalto);
+    color: var(--niebla);
+}
 
-.previo__fallos { color: var(--buganvilla); }
+.filtro-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--tiza);
+    padding: 2px 4px;
+}
 
 /* ---------- Lista ---------- */
 .lista {
     flex: 1;
-    padding: 24px 20px calc(120px + var(--abajo));
+    padding: 16px 20px calc(120px + var(--abajo));
 }
 
 .lista__dia {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 26px 4px 10px;
+    margin: 22px 4px 10px;
 }
 .lista__dia:first-child { margin-top: 0; }
 .lista__dia::after {
@@ -537,21 +625,34 @@ button { cursor: pointer; border: none; background: none; }
 .gasto {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     width: 100%;
     text-align: left;
-    padding: 14px 16px;
+    padding: 12px 14px;
     margin-bottom: 8px;
     background: var(--carta);
     border-radius: var(--r-m);
     border-left: 4px solid var(--linea);
     box-shadow: var(--sombra);
-    transition: transform .12s ease;
+    transition: transform .12s ease, background-color .15s ease;
 }
 .gasto:active { transform: scale(.985); }
 
 .gasto[data-color="laurel"]     { border-left-color: var(--laurel); }
 .gasto[data-color="buganvilla"] { border-left-color: var(--buganvilla); }
+
+.gasto__icono {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--carta-sub);
+    border: 1px solid var(--linea-fina);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex: none;
+}
 
 .gasto__cuerpo { flex: 1; min-width: 0; }
 
@@ -562,6 +663,7 @@ button { cursor: pointer; border: none; background: none; }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 15px;
 }
 
 .gasto__meta {
@@ -575,18 +677,21 @@ button { cursor: pointer; border: none; background: none; }
 
 .gasto__importe {
     font-family: var(--display);
-    font-weight: 600;
-    font-size: 19px;
+    font-weight: 700;
+    font-size: 18px;
     letter-spacing: -.02em;
     flex: none;
 }
 
-.gasto--liquidacion { border-left-style: dotted; }
-.gasto--pendiente { opacity: .6; }
+.gasto--liquidacion {
+    border-left-style: dotted;
+    background: var(--carta-sub);
+}
+.gasto--pendiente { opacity: .65; }
 
 .vacio {
     text-align: center;
-    padding: 56px 24px;
+    padding: 48px 24px;
     color: var(--tiza);
 }
 .vacio__titulo {
@@ -599,7 +704,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 .vacio p { margin: 0; }
 
-/* ---------- Acciones ---------- */
+/* ---------- Acciones Inferiores ---------- */
 .acciones {
     position: fixed;
     left: 0;
@@ -612,7 +717,9 @@ button { cursor: pointer; border: none; background: none; }
     margin: 0 auto;
     padding: 14px 20px calc(14px + var(--abajo));
     background: linear-gradient(to top, var(--niebla) 60%, rgba(238, 241, 240, 0));
+    pointer-events: none;
 }
+.acciones > button { pointer-events: auto; }
 
 .acciones__principal {
     flex: 1;
@@ -621,9 +728,10 @@ button { cursor: pointer; border: none; background: none; }
     color: var(--niebla);
     border-radius: 99px;
     font-weight: 600;
-    box-shadow: var(--sombra);
+    box-shadow: var(--sombra-flotante);
+    transition: transform .12s ease, opacity .12s ease;
 }
-.acciones__principal:active { opacity: .85; }
+.acciones__principal:active { opacity: .85; transform: scale(.98); }
 
 .acciones__secundario {
     padding: 17px 22px;
@@ -632,24 +740,26 @@ button { cursor: pointer; border: none; background: none; }
     border: 1px solid var(--linea);
     border-radius: 99px;
     font-weight: 600;
-    box-shadow: var(--sombra);
+    box-shadow: var(--sombra-flotante);
+    transition: transform .12s ease;
 }
+.acciones__secundario:active { transform: scale(.98); }
 
-/* ---------- Hojas ---------- */
+/* ---------- Hojas y Diálogos Modales ---------- */
 .velo {
     position: fixed;
     inset: 0;
     z-index: 30;
-    background: rgba(20, 32, 31, .45);
-    backdrop-filter: blur(2px);
+    background: rgba(20, 32, 31, .48);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: flex-end;
     justify-content: center;
     animation: aparecer .2s ease;
 }
 
-@keyframes aparecer { from { opacity: 0; } }
-@keyframes subir { from { transform: translateY(100%); } }
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes subir { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 .hoja {
     width: 100%;
@@ -659,7 +769,8 @@ button { cursor: pointer; border: none; background: none; }
     background: var(--niebla);
     border-radius: var(--r-l) var(--r-l) 0 0;
     padding: 10px 24px calc(28px + var(--abajo));
-    animation: subir .3s cubic-bezier(.22, 1, .36, 1);
+    animation: subir .25s cubic-bezier(.22, 1, .36, 1);
+    box-shadow: var(--sombra-flotante);
 }
 
 .hoja__asa {
@@ -673,9 +784,9 @@ button { cursor: pointer; border: none; background: none; }
 .hoja__titulo {
     font-family: var(--display);
     font-size: 26px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -.03em;
-    margin: 0 0 20px;
+    margin: 0 0 18px;
 }
 
 .importe {
@@ -685,14 +796,19 @@ button { cursor: pointer; border: none; background: none; }
     background: var(--carta);
     border: 1px solid var(--linea);
     border-radius: var(--r-m);
-    padding: 14px 18px;
-    margin-bottom: 18px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.importe:focus-within {
+    border-color: var(--basalto);
+    box-shadow: 0 0 0 3px rgba(47, 111, 94, .15);
 }
 
 .importe__moneda {
     font-family: var(--display);
     font-size: 30px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--tiza);
 }
 
@@ -702,7 +818,7 @@ button { cursor: pointer; border: none; background: none; }
     border: none;
     background: none;
     font-family: var(--display);
-    font-size: 40px;
+    font-size: 38px;
     font-weight: 800;
     letter-spacing: -.03em;
     padding: 0;
@@ -714,14 +830,14 @@ button { cursor: pointer; border: none; background: none; }
 .opciones {
     display: flex;
     gap: 8px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
 .opciones--envolver { flex-wrap: wrap; }
 
 .opcion {
     flex: 1;
-    padding: 13px 10px;
+    padding: 12px 10px;
     background: var(--carta);
     border: 1px solid var(--linea);
     border-radius: var(--r-s);
@@ -759,7 +875,7 @@ button { cursor: pointer; border: none; background: none; }
     border: 1px solid var(--linea);
     border-radius: var(--r-m);
     padding: 6px 6px 6px 16px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .dictado__campo {
@@ -798,7 +914,7 @@ button { cursor: pointer; border: none; background: none; }
 .dictado__pista {
     font-size: 13px;
     color: var(--tiza);
-    margin: 0 0 20px;
+    margin: 0 0 16px;
     padding: 0 4px;
     line-height: 1.35;
 }
@@ -825,18 +941,18 @@ button { cursor: pointer; border: none; background: none; }
     display: block;
     font-family: var(--display);
     font-size: 24px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -.02em;
     color: var(--basalto);
     margin-bottom: 2px;
 }
 
-/* Lista de grupos dentro de la hoja de gestión */
+/* Fichas de grupos */
 .ficha {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px 14px;
+    gap: 6px 12px;
     padding: 13px 16px;
     margin-bottom: 8px;
     background: var(--carta);
@@ -868,6 +984,37 @@ button { cursor: pointer; border: none; background: none; }
 }
 .ficha__accion--peligro { color: var(--buganvilla); }
 
+/* Estadísticas y desglose */
+.stats-seccion {
+    margin-bottom: 20px;
+}
+.stats-tarjeta {
+    background: var(--carta);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-m);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.stats-fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+.stats-barra {
+    height: 8px;
+    background: var(--linea);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.stats-barra__progreso {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .4s ease;
+}
+
 .recado {
     position: fixed;
     left: 50%;
@@ -880,7 +1027,7 @@ button { cursor: pointer; border: none; background: none; }
     border-radius: 99px;
     font-size: 14px;
     font-weight: 500;
-    box-shadow: var(--sombra);
+    box-shadow: var(--sombra-flotante);
     animation: aparecer .2s ease;
     max-width: calc(100vw - 40px);
     text-align: center;
@@ -956,7 +1103,7 @@ button { cursor: pointer; border: none; background: none; }
             <div class="saldo__fila">
                 <span class="saldo__rotulo" id="saldoRotulo">Saldo del grupo</span>
                 <span class="saldo__version" id="etiquetaVersion"></span>
-                <button class="saldo__salir" id="botonSalir">Salir</button>
+                <button class="saldo__salir" id="botonSalir" title="Cerrar sesión">Salir</button>
             </div>
 
             <p class="saldo__cifra cifra" id="saldoCifra">0,00 €</p>
@@ -974,15 +1121,15 @@ button { cursor: pointer; border: none; background: none; }
             <div class="totales" id="totales">
                 <div class="total">
                     <span class="total__cifra cifra" id="totalGrupo">0,00 €</span>
-                    <span class="total__rotulo">gastado en total</span>
+                    <span class="total__rotulo">Total gastado</span>
                 </div>
                 <div class="total total--mio">
                     <span class="total__cifra cifra" id="totalMio">0,00 €</span>
-                    <span class="total__rotulo" id="totalMioRotulo">has pagado</span>
+                    <span class="total__rotulo" id="totalMioRotulo">Has pagado</span>
                 </div>
                 <div class="total total--suyo">
                     <span class="total__cifra cifra" id="totalSuyo">0,00 €</span>
-                    <span class="total__rotulo" id="totalSuyoRotulo">debes</span>
+                    <span class="total__rotulo" id="totalSuyoRotulo">Balance neto</span>
                 </div>
             </div>
         </div>
@@ -999,15 +1146,46 @@ button { cursor: pointer; border: none; background: none; }
     </button>
 
     <div class="utiles oculto" id="utiles">
-        <button class="util" id="botonCompartir">Compartir</button>
-        <button class="util" id="botonExportar">Exportar CSV</button>
-        <button class="util" id="botonImportar">Importar CSV</button>
+        <button class="util" id="botonStats">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            Estadísticas
+        </button>
+        <button class="util" id="botonCompartir">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Compartir
+        </button>
+        <button class="util" id="botonExportar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+        </button>
+        <button class="util" id="botonImportar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Importar CSV
+        </button>
+        <button class="util" id="botonBackupJSON">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Backup JSON
+        </button>
+    </div>
+
+    <!-- Barra de Búsqueda y Filtros -->
+    <div class="filtro-caja oculto" id="cajaFiltro">
+        <div class="filtro-busqueda">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="entradaBusqueda" placeholder="Buscar por concepto o categoría…" autocomplete="off">
+            <button class="filtro-busqueda__limpiar oculto" id="botonLimpiarBusqueda">Borrar</button>
+        </div>
+        <div class="filtro-chips" id="chipsFiltro"></div>
+        <div class="filtro-info oculto" id="infoFiltro">
+            <span id="textoInfoFiltro"></span>
+            <button class="boton--tenue" id="botonResetFiltros" style="padding:0;font-size:12px">Ver todos</button>
+        </div>
     </div>
 
     <main class="lista" id="lista"></main>
 
     <div class="acciones">
-        <button class="acciones__principal" id="botonNuevoGasto">Añadir gasto</button>
+        <button class="acciones__principal" id="botonNuevoGasto">+ Añadir gasto</button>
         <button class="acciones__secundario" id="botonLiquidar">Saldar</button>
     </div>
 </div>
@@ -1027,7 +1205,7 @@ button { cursor: pointer; border: none; background: none; }
                    placeholder="23,50 cena en Liubliana pagó Pilar"
                    aria-label="Dictar el gasto de corrido"
                    autocapitalize="sentences" autocomplete="off">
-            <button class="dictado__micro" id="botonMicro" aria-label="Dictar">
+            <button class="dictado__micro" id="botonMicro" aria-label="Dictar" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" aria-hidden="true">
                     <rect x="9" y="2" width="6" height="11" rx="3"/>
@@ -1074,13 +1252,13 @@ button { cursor: pointer; border: none; background: none; }
         </div>
 
         <button class="boton" id="botonGuardarGasto">Guardar gasto</button>
-        <button class="hoja__borrar oculto" id="botonBorrarGasto">Borrar este gasto</button>
-        <button class="boton boton--tenue" id="botonCerrarGasto">Cancelar</button>
+        <button class="hoja__borrar oculto" id="botonBorrarGasto" type="button">Borrar este gasto</button>
+        <button class="boton boton--tenue" id="botonCerrarGasto" type="button">Cancelar</button>
     </div>
 </div>
 
 <!-- ============================================================
-     HOJA: LIQUIDAR
+     HOJA: LIQUIDAR / EDITAR LIQUIDACIÓN
      ============================================================ -->
 <div class="velo oculto" id="veloLiquidar">
     <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloLiquidar">
@@ -1098,12 +1276,32 @@ button { cursor: pointer; border: none; background: none; }
         </div>
 
         <div class="campo">
-            <label for="entradaNotaLiquidar">Nota</label>
-            <input type="text" id="entradaNotaLiquidar" placeholder="Bizum">
+            <label for="entradaNotaLiquidar">Nota o concepto</label>
+            <input type="text" id="entradaNotaLiquidar" placeholder="Bizum / Transferencia">
+        </div>
+
+        <div class="campo">
+            <label for="entradaFechaLiquidar">Fecha del pago</label>
+            <input type="date" id="entradaFechaLiquidar">
         </div>
 
         <button class="boton" id="botonGuardarLiquidar">Registrar el pago</button>
-        <button class="boton boton--tenue" id="botonCerrarLiquidar">Cancelar</button>
+        <button class="hoja__borrar oculto" id="botonBorrarLiquidar" type="button">Borrar esta liquidación</button>
+        <button class="boton boton--tenue" id="botonCerrarLiquidar" type="button">Cancelar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: ESTADÍSTICAS Y RESUMEN
+     ============================================================ -->
+<div class="velo oculto" id="veloStats">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloStats">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloStats">Estadísticas del grupo</h2>
+
+        <div id="cuerpoStats"></div>
+
+        <button class="boton boton--tenue" id="botonCerrarStats" type="button">Cerrar</button>
     </div>
 </div>
 
@@ -1119,7 +1317,7 @@ button { cursor: pointer; border: none; background: none; }
 
         <div class="campo">
             <label for="entradaGrupoNuevo">Nombre del grupo nuevo</label>
-            <input type="text" id="entradaGrupoNuevo" placeholder="Eslovenia">
+            <input type="text" id="entradaGrupoNuevo" placeholder="Eslovenia 2026">
         </div>
 
         <button class="boton" id="botonCrearGrupo">Crear grupo</button>
@@ -1127,10 +1325,9 @@ button { cursor: pointer; border: none; background: none; }
         <span class="rotulo" style="display:block;margin:26px 0 10px">Grupos que ya tenéis</span>
         <div id="listaGrupos"></div>
 
-        <button class="boton boton--tenue" id="botonCerrarGrupos">Cerrar</button>
+        <button class="boton boton--tenue" id="botonCerrarGrupos" type="button">Cerrar</button>
     </div>
 </div>
-
 
 <!-- ============================================================
      HOJA: IMPORTAR CSV
@@ -1144,7 +1341,7 @@ button { cursor: pointer; border: none; background: none; }
 
         <p class="dictado__pista" id="pistaImportar"></p>
 
-        <button class="boton boton--google" id="botonElegirArchivo">Elegir un archivo</button>
+        <button class="boton boton--google" id="botonElegirArchivo" type="button">Elegir un archivo CSV</button>
         <input type="file" id="entradaArchivo" class="oculto"
                accept=".csv,.txt,text/csv,text/plain">
 
@@ -1157,62 +1354,61 @@ button { cursor: pointer; border: none; background: none; }
                       placeholder="Fecha;Concepto;Importe&#10;2026-07-21;Cena;23,50"></textarea>
         </div>
 
-        <button class="boton boton--tenue" id="botonAnalizar">Analizar</button>
+        <button class="boton boton--tenue" id="botonAnalizar" type="button">Analizar datos</button>
 
         <div id="previoImportar"></div>
 
         <button class="boton oculto" id="botonConfirmarImportar">Importar</button>
 
-        <button class="hoja__borrar oculto" id="botonDeshacerImport">
+        <button class="hoja__borrar oculto" id="botonDeshacerImport" type="button">
             Borrar lo importado en este grupo
         </button>
 
-        <button class="boton boton--tenue" id="botonCerrarImportar">Cerrar</button>
+        <button class="boton boton--tenue" id="botonCerrarImportar" type="button">Cerrar</button>
     </div>
 </div>
-
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // ============================================================
-//  ▼▼▼  LO ÚNICO QUE TIENES QUE EDITAR  ▼▼▼
+//  CONFIGURACIÓN SUPABASE & CONSTANTES
 // ============================================================
-
 const SUPABASE_URL      = 'https://cmkzcvfjgrgxwqjimtxa.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNta3pjdmZqZ3JneHdxamltdHhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NzU5NzAsImV4cCI6MjEwMDM1MTk3MH0.epSiwj0MO9WWfqETVoEt2E_ijNSzi4x0d-TmgDhAWhQ';
 
-// ============================================================
-//  ▲▲▲  A PARTIR DE AQUÍ NO HACE FALTA TOCAR NADA  ▲▲▲
-// ============================================================
-
 const LOCALE = 'es-ES';
 const CURRENCY = 'EUR';
-
-// Versión visible en la app. Súbela junto a la VERSION de sw.js
-// cada vez que cambies algo, y así sabrás de un vistazo si el
-// móvil está mostrando lo último o una copia guardada.
-const VERSION_APP = 'v14';
-
-// Ponlo en true cuando hayas configurado Google en Supabase
-// (Authentication → Providers → Google). Mientras esté en false,
-// el botón ni siquiera aparece, para no acabar en una página de error.
+const VERSION_APP = 'v15';
 const GOOGLE_ACTIVO = false;
+const TOPE_FIEL = 300;
 
 const CATEGORIES = [
-    'súper', 'casa', 'coche', 'comer fuera', 'alojamiento',
-    'transporte', 'parking', 'ocio', 'viajes', 'salud', 'niños', 'otros',
+    'súper', 'comer fuera', 'casa', 'transporte', 'coche', 'alojamiento',
+    'ocio', 'viajes', 'parking', 'salud', 'niños', 'otros',
 ];
 
-// El saldo con el que el fiel de la balanza llega al extremo.
-const TOPE_FIEL = 300;
+const CATEGORY_META = {
+    'súper':       { icono: '🛒', etiqueta: 'Súper' },
+    'comer fuera': { icono: '🍽️', etiqueta: 'Comer fuera' },
+    'casa':        { icono: '🏠', etiqueta: 'Casa' },
+    'transporte':  { icono: '🚌', etiqueta: 'Transporte' },
+    'coche':       { icono: '🚗', etiqueta: 'Coche' },
+    'alojamiento': { icono: '🏨', etiqueta: 'Alojamiento' },
+    'ocio':        { icono: '🎟️', etiqueta: 'Ocio' },
+    'viajes':      { icono: '✈️', etiqueta: 'Viajes' },
+    'parking':     { icono: '🅿️', etiqueta: 'Parking' },
+    'salud':       { icono: '💊', etiqueta: 'Salud' },
+    'niños':       { icono: '👶', etiqueta: 'Niños' },
+    'otros':       { icono: '📦', etiqueta: 'Otros' },
+};
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
 // ------------------------------------------------------------
-//  Estado
+//  Estado Global
 // ------------------------------------------------------------
 const estado = {
     sesion: null,
@@ -1225,9 +1421,11 @@ const estado = {
     liquidaciones: [],
     cola: [],
     editando: null,
+    editandoLiquidacion: null,
     desdeVisita: null,
     novedadesVistas: false,
     formulario: { pagador: null, reparto: 0.5, repartoLibre: 50 },
+    filtro: { texto: '', personaId: null, categoria: null },
     modoAlta: false,
 };
 
@@ -1268,8 +1466,32 @@ function tituloDia(iso) {
 }
 
 function aNumero(texto) {
-    const limpio = String(texto || '').replace(/\s/g, '').replace(',', '.');
-    const n = parseFloat(limpio);
+    if (typeof texto === 'number') return Number.isFinite(texto) ? Math.round(texto * 100) / 100 : NaN;
+    let t = String(texto || '').replace(/[€$\s]/g, '').trim();
+    if (!t) return NaN;
+
+    // Si contiene operadores matemáticos (ej: "15 + 4,20 + 8")
+    if (/[+\-*/]/.test(t) && /^[0-9+\-*/().,]+$/.test(t)) {
+        try {
+            const limpioExpr = t.replace(/,/g, '.');
+            const res = Function('"use strict"; return (' + limpioExpr + ')')();
+            if (Number.isFinite(res)) return Math.round(res * 100) / 100;
+        } catch {}
+    }
+
+    const punto = t.includes('.');
+    const coma = t.includes(',');
+
+    if (punto && coma) {
+        if (t.lastIndexOf(',') > t.lastIndexOf('.')) t = t.replace(/\./g, '').replace(',', '.');
+        else t = t.replace(/,/g, '');
+    } else if (coma) {
+        t = /^\d{1,3}(,\d{3})+$/.test(t) ? t.replace(/,/g, '') : t.replace(',', '.');
+    } else if (punto) {
+        if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+    }
+
+    const n = parseFloat(t);
     return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
 }
 
@@ -1293,10 +1515,11 @@ function recado(texto) {
     n.textContent = texto;
     document.body.appendChild(n);
     clearTimeout(recadoTemporizador);
-    recadoTemporizador = setTimeout(() => n.remove(), 2600);
+    recadoTemporizador = setTimeout(() => n.remove(), 2800);
 }
 
 function mostrarAviso(elemento, texto) {
+    if (!elemento) return;
     if (!texto) {
         elemento.classList.add('oculto');
         elemento.textContent = '';
@@ -1307,7 +1530,7 @@ function mostrarAviso(elemento, texto) {
 }
 
 // ------------------------------------------------------------
-//  Copia local
+//  Copia local (Offline First)
 // ------------------------------------------------------------
 function guardarCache() {
     try {
@@ -1422,7 +1645,6 @@ async function acceder() {
             const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
             if (error) throw error;
         }
-        // Para no volver a escribirlo la próxima vez.
         try { localStorage.setItem(CLAVE_CORREO, correo); } catch {}
     } catch (error) {
         mostrarAviso($('avisoAcceso'), traducirError(error));
@@ -1446,12 +1668,11 @@ function traducirError(error) {
 async function salir() {
     await sb.auth.signOut();
     localStorage.removeItem(CLAVE_CACHE);
-    // El correo se queda guardado a propósito, para no reescribirlo.
     location.reload();
 }
 
 // ------------------------------------------------------------
-//  Datos
+//  Gestión de Datos
 // ------------------------------------------------------------
 function repartirPerfiles() {
     const miId = estado.sesion?.user?.id;
@@ -1486,7 +1707,6 @@ function fijarGrupo(id) {
     pintar();
 }
 
-// Movimientos del grupo activo.
 function gastosDelGrupo() {
     return estado.gastos.filter((g) => String(g.group_id) === String(estado.grupoActivo));
 }
@@ -1500,7 +1720,7 @@ async function cargarTodo() {
         sb.from('profiles').select('*').order('created_at'),
         sb.from('groups').select('*').order('created_at'),
         sb.from('expenses').select('*').order('spent_on', { ascending: false })
-          .order('created_at', { ascending: false }).limit(2000),
+          .order('created_at', { ascending: false }).limit(2500),
         sb.from('settlements').select('*').order('settled_on', { ascending: false }).limit(500),
     ]);
 
@@ -1518,20 +1738,21 @@ async function cargarTodo() {
     guardarCache();
 }
 
-// Reinserta lo que sigue en la cola, para que un gasto apuntado
-// sin cobertura no desaparezca al refrescar.
 function reponerPendientes() {
     for (const tarea of estado.cola) {
         if (tarea.tabla === 'groups') continue;
+        if (tarea.tabla === 'expenses_update' || tarea.tabla === 'expenses_delete') continue;
+        if (tarea.tabla === 'settlements_update' || tarea.tabla === 'settlements_delete') continue;
+
         const lista = tarea.tabla === 'expenses' ? estado.gastos : estado.liquidaciones;
-        if (!lista.some((f) => f.client_id === tarea.fila.client_id)) {
+        if (tarea.fila?.client_id && !lista.some((f) => f.client_id === tarea.fila.client_id)) {
             lista.push({ ...tarea.fila, id: tarea.fila.client_id, pendiente: true });
         }
     }
 }
 
 // ------------------------------------------------------------
-//  Cola de envío
+//  Cola de Envío Offline
 // ------------------------------------------------------------
 function encolar(tabla, fila) {
     estado.cola.push({ tabla, fila });
@@ -1544,9 +1765,25 @@ async function vaciarCola() {
     const restantes = [];
     for (const tarea of estado.cola) {
         try {
-            const { error } = await sb.from(tarea.tabla)
-                .upsert(tarea.fila, { onConflict: 'client_id' });
-            if (error) throw error;
+            if (tarea.tabla === 'expenses_update') {
+                const { id, ...resto } = tarea.fila;
+                const { error } = await sb.from('expenses').update(resto).eq('id', id);
+                if (error) throw error;
+            } else if (tarea.tabla === 'expenses_delete') {
+                const { error } = await sb.from('expenses').delete().eq('id', tarea.fila.id);
+                if (error) throw error;
+            } else if (tarea.tabla === 'settlements_update') {
+                const { id, ...resto } = tarea.fila;
+                const { error } = await sb.from('settlements').update(resto).eq('id', id);
+                if (error) throw error;
+            } else if (tarea.tabla === 'settlements_delete') {
+                const { error } = await sb.from('settlements').delete().eq('id', tarea.fila.id);
+                if (error) throw error;
+            } else {
+                const { error } = await sb.from(tarea.tabla)
+                    .upsert(tarea.fila, { onConflict: 'client_id' });
+                if (error) throw error;
+            }
         } catch (e) {
             console.warn('Sigue pendiente de enviar', e);
             restantes.push(tarea);
@@ -1558,7 +1795,7 @@ async function vaciarCola() {
     guardarCola();
 
     if (enviadas > 0) {
-        recado(enviadas === 1 ? 'Gasto sincronizado' : enviadas + ' apuntes sincronizados');
+        recado(enviadas === 1 ? 'Apunte sincronizado' : enviadas + ' apuntes sincronizados');
         await refrescar();
     }
 }
@@ -1577,9 +1814,7 @@ async function refrescar() {
 }
 
 // ------------------------------------------------------------
-//  Balance del grupo activo
-//  Por cada gasto, quien no pagó debe importe × (1 − payer_share).
-//  Las liquidaciones restan de esa deuda.
+//  Balance del Grupo Activo
 // ------------------------------------------------------------
 function calcularSaldo() {
     const neto = {};
@@ -1602,16 +1837,19 @@ function calcularSaldo() {
 }
 
 // ------------------------------------------------------------
-//  Pintado
+//  Pintado Principal
 // ------------------------------------------------------------
 function pintar() {
     pintarGrupos();
     pintarSaldo();
     pintarTotales();
+    pintarFiltros();
     pintarLista();
     pintarEstado();
     pintarNovedades();
-    $('utiles').classList.toggle('oculto', !grupo(estado.grupoActivo));
+    const tieneGrupo = Boolean(grupo(estado.grupoActivo));
+    $('utiles').classList.toggle('oculto', !tieneGrupo);
+    $('cajaFiltro').classList.toggle('oculto', !tieneGrupo || !gastosDelGrupo().length);
 }
 
 function pintarGrupos() {
@@ -1633,7 +1871,6 @@ function pintarGrupos() {
     gestion.addEventListener('click', abrirHojaGrupos);
     caja.appendChild(gestion);
 
-    // Deja a la vista el grupo activo.
     const activo = caja.querySelector('[aria-current="true"]');
     if (activo) activo.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
@@ -1649,8 +1886,8 @@ function pintarSaldo() {
     cifra.textContent = formatoDinero(Math.abs(saldo));
 
     const nombreOtro = estado.otro?.display_name;
-    const colorYo = estado.yo?.color === 'buganvilla' ? 'var(--buganvilla)' : 'var(--laurel)';
-    const colorOtro = estado.otro?.color === 'buganvilla' ? 'var(--buganvilla)' : 'var(--laurel)';
+    const colorYo = estado.yo?.color === 'buganvilla' ? '#D98CA8' : '#7FC8B4';
+    const colorOtro = estado.otro?.color === 'buganvilla' ? '#D98CA8' : '#7FC8B4';
 
     $('fielIzquierda').textContent = estado.yo?.display_name || '—';
     $('fielDerecha').textContent = nombreOtro || 'Falta la 2ª cuenta';
@@ -1694,10 +1931,108 @@ function pintarSaldo() {
     barra.style.width = (Math.min(Math.abs(saldo) / TOPE_FIEL, 1) * 50) + '%';
 }
 
+function totalesDelGrupo() {
+    const gastos = gastosDelGrupo();
+    const total = gastos.reduce((t, g) => t + Number(g.amount), 0);
+
+    const adelantado = {};
+    for (const p of estado.perfiles) adelantado[p.id] = 0;
+    for (const g of gastos) {
+        adelantado[g.paid_by] = (adelantado[g.paid_by] || 0) + Number(g.amount);
+    }
+
+    return { total, adelantado };
+}
+
+function pintarTotales() {
+    const caja = $('totales');
+
+    if (!grupo(estado.grupoActivo) || (!gastosDelGrupo().length && !liquidacionesDelGrupo().length)) {
+        caja.classList.add('oculto');
+        return;
+    }
+
+    const { total, adelantado } = totalesDelGrupo();
+    const colorDe = (p) => p?.color === 'buganvilla' ? '#D98CA8' : '#7FC8B4';
+
+    $('totalGrupo').textContent = formatoDinero(total);
+    $('totalMio').textContent = formatoDinero(adelantado[estado.yo?.id] || 0);
+    $('totalMio').style.color = colorDe(estado.yo);
+    $('totalMioRotulo').textContent = 'Has pagado';
+
+    if (estado.otro) {
+        const saldo = calcularSaldo();
+        $('totalSuyo').textContent = formatoDinero(Math.abs(saldo));
+        $('totalSuyoRotulo').textContent =
+            Math.abs(saldo) < 0.005 ? 'En paz' : saldo < 0 ? 'Debes' : 'Te deben';
+        $('totalSuyo').style.color = saldo < 0 ? colorDe(estado.otro) : colorDe(estado.yo);
+        $('totalSuyo').parentElement.classList.remove('oculto');
+    } else {
+        $('totalSuyo').parentElement.classList.add('oculto');
+    }
+
+    caja.classList.remove('oculto');
+}
+
+// ------------------------------------------------------------
+//  Filtros y Búsqueda
+// ------------------------------------------------------------
+function pintarFiltros() {
+    const cajaChips = $('chipsFiltro');
+    cajaChips.innerHTML = '';
+
+    const chipTodos = document.createElement('button');
+    chipTodos.className = 'chip';
+    chipTodos.textContent = 'Todos';
+    chipTodos.setAttribute('aria-pressed', String(!estado.filtro.personaId && !estado.filtro.categoria));
+    chipTodos.addEventListener('click', () => {
+        estado.filtro.personaId = null;
+        estado.filtro.categoria = null;
+        pintar();
+    });
+    cajaChips.appendChild(chipTodos);
+
+    for (const p of [estado.yo, estado.otro].filter(Boolean)) {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.textContent = p.display_name;
+        chip.setAttribute('aria-pressed', String(estado.filtro.personaId === p.id));
+        chip.addEventListener('click', () => {
+            estado.filtro.personaId = estado.filtro.personaId === p.id ? null : p.id;
+            pintar();
+        });
+        cajaChips.appendChild(chip);
+    }
+}
+
+function filtrarMovimientos(movimientos) {
+    const busqueda = (estado.filtro.texto || '').trim().toLowerCase();
+    const persona = estado.filtro.personaId;
+    const cat = estado.filtro.categoria;
+
+    return movimientos.filter((m) => {
+        if (persona) {
+            if (m.tipo === 'gasto' && m.paid_by !== persona) return false;
+            if (m.tipo === 'liquidacion' && m.from_user !== persona && m.to_user !== persona) return false;
+        }
+        if (cat && m.tipo === 'gasto' && m.category !== cat) return false;
+
+        if (busqueda) {
+            const desc = (m.description || m.note || '').toLowerCase();
+            const catNombre = (m.category || '').toLowerCase();
+            const pagador = perfil(m.paid_by || m.from_user)?.display_name.toLowerCase() || '';
+            if (!desc.includes(busqueda) && !catNombre.includes(busqueda) && !pagador.includes(busqueda)) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
+
 function pintarLista() {
     const lista = $('lista');
 
-    const movimientos = [
+    const todosMovimientos = [
         ...gastosDelGrupo().map((g) => ({ ...g, tipo: 'gasto', fecha: g.spent_on })),
         ...liquidacionesDelGrupo().map((l) => ({ ...l, tipo: 'liquidacion', fecha: l.settled_on })),
     ].sort((a, b) => {
@@ -1709,16 +2044,39 @@ function pintarLista() {
         lista.innerHTML =
             '<div class="vacio">' +
             '<p class="vacio__titulo">Todavía no hay ningún grupo</p>' +
-            '<p>Crea uno arriba para empezar. Por ejemplo, el viaje en el que estéis.</p>' +
+            '<p>Crea uno arriba para empezar. Por ejemplo, el viaje o los gastos de casa.</p>' +
             '</div>';
         return;
+    }
+
+    if (!todosMovimientos.length) {
+        lista.innerHTML =
+            '<div class="vacio">' +
+            '<p class="vacio__titulo">Este grupo está vacío</p>' +
+            '<p>Apunta el primer gasto y el saldo se calcula solo.</p>' +
+            '</div>';
+        return;
+    }
+
+    const movimientos = filtrarMovimientos(todosMovimientos);
+    const hayFiltroActivo = Boolean(estado.filtro.texto || estado.filtro.personaId || estado.filtro.categoria);
+
+    const infoCaja = $('infoFiltro');
+    const infoTexto = $('textoInfoFiltro');
+    if (hayFiltroActivo) {
+        const sumaFiltrada = movimientos.reduce((t, m) => t + Number(m.amount), 0);
+        infoTexto.textContent = movimientos.length +
+            (movimientos.length === 1 ? ' resultado' : ' resultados') + ' · ' + formatoDinero(sumaFiltrada);
+        infoCaja.classList.remove('oculto');
+    } else {
+        infoCaja.classList.add('oculto');
     }
 
     if (!movimientos.length) {
         lista.innerHTML =
             '<div class="vacio">' +
-            '<p class="vacio__titulo">Este grupo está vacío</p>' +
-            '<p>Apunta el primer gasto y el saldo se calcula solo.</p>' +
+            '<p class="vacio__titulo">Sin resultados</p>' +
+            '<p>No hay ningún apunte que coincida con tu búsqueda.</p>' +
             '</div>';
         return;
     }
@@ -1738,12 +2096,15 @@ function pintarLista() {
             let notaReparto = 'a medias';
             if (reparto >= 0.999) notaReparto = 'solo para ' + quien.display_name;
             else if (reparto <= 0.001) notaReparto = 'solo para ' + perfil(otroId(m.paid_by)).display_name;
-            else if (Math.abs(reparto - 0.5) > 0.001) notaReparto = Math.round(reparto * 100) + ' / ' + Math.round((1 - reparto) * 100);
+            else if (Math.abs(reparto - 0.5) > 0.001) notaReparto = Math.round(reparto * 100) + '/' + Math.round((1 - reparto) * 100);
+
+            const iconoCat = CATEGORY_META[m.category]?.icono || '📦';
 
             html +=
                 '<button class="gasto' + (m.pendiente ? ' gasto--pendiente' : '') + '"' +
                 ' data-color="' + escapar(quien.color) + '"' +
                 ' data-gasto="' + escapar(m.id) + '">' +
+                '<span class="gasto__icono" aria-hidden="true">' + iconoCat + '</span>' +
                 '<span class="gasto__cuerpo">' +
                 '<span class="gasto__concepto">' + escapar(m.description) + '</span>' +
                 '<span class="gasto__meta">' + escapar(quien.display_name) + ' · ' +
@@ -1756,8 +2117,10 @@ function pintarLista() {
             const de = perfil(m.from_user);
             const a = perfil(m.to_user);
             html +=
-                '<div class="gasto gasto--liquidacion' + (m.pendiente ? ' gasto--pendiente' : '') + '"' +
-                ' data-color="' + escapar(de.color) + '">' +
+                '<button class="gasto gasto--liquidacion' + (m.pendiente ? ' gasto--pendiente' : '') + '"' +
+                ' data-color="' + escapar(de.color) + '"' +
+                ' data-liquidacion="' + escapar(m.id) + '">' +
+                '<span class="gasto__icono" aria-hidden="true">💸</span>' +
                 '<span class="gasto__cuerpo">' +
                 '<span class="gasto__concepto">Pago de ' + escapar(de.display_name) +
                 ' a ' + escapar(a.display_name) + '</span>' +
@@ -1765,7 +2128,7 @@ function pintarLista() {
                 (m.pendiente ? ' · sin enviar' : '') + '</span>' +
                 '</span>' +
                 '<span class="gasto__importe cifra">' + formatoDinero(m.amount) + '</span>' +
-                '</div>';
+                '</button>';
         }
     }
 
@@ -1773,6 +2136,10 @@ function pintarLista() {
 
     lista.querySelectorAll('[data-gasto]').forEach((boton) => {
         boton.addEventListener('click', () => abrirHojaGasto(boton.dataset.gasto));
+    });
+
+    lista.querySelectorAll('[data-liquidacion]').forEach((boton) => {
+        boton.addEventListener('click', () => abrirHojaLiquidarParaEditar(boton.dataset.liquidacion));
     });
 }
 
@@ -1783,7 +2150,7 @@ function pintarEstado() {
     if (!navigator.onLine) {
         texto.textContent = estado.cola.length
             ? 'Sin conexión · ' + estado.cola.length + ' apunte(s) esperando'
-            : 'Sin conexión · lo que apuntes se enviará al volver';
+            : 'Sin conexión · lo que apuntes se guardará y enviará al volver';
         barra.classList.remove('oculto');
         return;
     }
@@ -1797,63 +2164,6 @@ function pintarEstado() {
     barra.classList.add('oculto');
 }
 
-// Tres cifras del grupo:
-//   total     → todo lo gastado
-//   adelantado → lo que cada uno puso de su bolsillo
-// La deuda entre ambos sale del saldo, que ya tiene en cuenta
-// las liquidaciones.
-function totalesDelGrupo() {
-    const gastos = gastosDelGrupo();
-    const total = gastos.reduce((t, g) => t + Number(g.amount), 0);
-
-    const adelantado = {};
-    for (const p of estado.perfiles) adelantado[p.id] = 0;
-    for (const g of gastos) {
-        adelantado[g.paid_by] = (adelantado[g.paid_by] || 0) + Number(g.amount);
-    }
-
-    return { total, adelantado };
-}
-
-function pintarTotales() {
-    const caja = $('totales');
-
-    if (!grupo(estado.grupoActivo) || !gastosDelGrupo().length) {
-        caja.classList.add('oculto');
-        return;
-    }
-
-    const { total, adelantado } = totalesDelGrupo();
-    const colorDe = (p) => p?.color === 'buganvilla' ? '#D98CA8' : '#7FC8B4';
-
-    $('totalGrupo').textContent = formatoDinero(total);
-
-    // Lo que tú has adelantado.
-    $('totalMio').textContent = formatoDinero(adelantado[estado.yo?.id] || 0);
-    $('totalMio').style.color = colorDe(estado.yo);
-    $('totalMioRotulo').textContent = 'has pagado';
-
-    // La deuda real, con el signo del saldo:
-    //   saldo < 0 → debes;  saldo > 0 → te deben;  0 → en paz.
-    if (estado.otro) {
-        const saldo = calcularSaldo();
-        $('totalSuyo').textContent = formatoDinero(Math.abs(saldo));
-        $('totalSuyoRotulo').textContent =
-            Math.abs(saldo) < 0.005 ? 'en paz' : saldo < 0 ? 'debes' : 'te deben';
-        $('totalSuyo').style.color = saldo < 0 ? colorDe(estado.otro) : colorDe(estado.yo);
-        $('totalSuyo').parentElement.classList.remove('oculto');
-    } else {
-        $('totalSuyo').parentElement.classList.add('oculto');
-    }
-
-    caja.classList.remove('oculto');
-}
-
-// ------------------------------------------------------------
-//  Novedades desde la última visita
-//  No son notificaciones: el móvil no avisa con la app cerrada.
-//  Es un resumen de lo que ha metido el otro mientras no mirabas.
-// ------------------------------------------------------------
 function pintarNovedades() {
     const barra = $('barraNovedades');
 
@@ -1883,7 +2193,81 @@ function pintarNovedades() {
 }
 
 // ------------------------------------------------------------
-//  Compartir el balance
+//  Hoja de Estadísticas y Resumen
+// ------------------------------------------------------------
+function abrirHojaStats() {
+    const g = grupo(estado.grupoActivo);
+    if (!g) {
+        recado('Elige antes un grupo');
+        return;
+    }
+
+    const gastos = gastosDelGrupo();
+    const caja = $('cuerpoStats');
+
+    if (!gastos.length) {
+        caja.innerHTML = '<p style="color:var(--tiza);text-align:center;padding:24px 0">No hay gastos registrados en este grupo todavía.</p>';
+        $('veloStats').classList.remove('oculto');
+        return;
+    }
+
+    const total = gastos.reduce((t, x) => t + Number(x.amount), 0);
+    const sumaPorCat = {};
+    for (const cat of CATEGORIES) sumaPorCat[cat] = 0;
+
+    for (const g of gastos) {
+        const cat = g.category || 'otros';
+        sumaPorCat[cat] = (sumaPorCat[cat] || 0) + Number(g.amount);
+    }
+
+    const catsOrdenadas = Object.entries(sumaPorCat)
+        .filter(([, sum]) => sum > 0)
+        .sort((a, b) => b[1] - a[1]);
+
+    const { adelantado } = totalesDelGrupo();
+
+    let html = '';
+
+    // Tarjeta de resumen global
+    html += '<div class="stats-tarjeta">';
+    html += '<div class="stats-fila"><span class="rotulo">Total gastado</span><strong class="cifra" style="font-size:20px">' + formatoDinero(total) + '</strong></div>';
+    html += '<div class="stats-fila" style="margin-top:8px"><span style="color:var(--tiza);font-size:13px">Número de gastos</span><span class="cifra">' + gastos.length + '</span></div>';
+    html += '<div class="stats-fila"><span style="color:var(--tiza);font-size:13px">Gasto medio</span><span class="cifra">' + formatoDinero(total / gastos.length) + '</span></div>';
+    html += '</div>';
+
+    // Desglose por persona
+    html += '<div class="stats-tarjeta" style="margin-top:14px">';
+    html += '<span class="rotulo" style="display:block;margin-bottom:10px">Aportación de cada uno</span>';
+    for (const p of estado.perfiles) {
+        const puesto = adelantado[p.id] || 0;
+        const pct = total > 0 ? Math.round((puesto / total) * 100) : 0;
+        const color = p.color === 'buganvilla' ? 'var(--buganvilla)' : 'var(--laurel)';
+        html += '<div class="stats-fila"><span>' + escapar(p.display_name) + '</span><span class="cifra"><strong>' + formatoDinero(puesto) + '</strong> (' + pct + '%)</span></div>';
+        html += '<div class="stats-barra"><div class="stats-barra__progreso" style="width:' + pct + '%;background:' + color + '"></div></div>';
+    }
+    html += '</div>';
+
+    // Desglose por categorías
+    html += '<div class="stats-tarjeta" style="margin-top:14px">';
+    html += '<span class="rotulo" style="display:block;margin-bottom:12px">Por categorías</span>';
+    for (const [cat, sum] of catsOrdenadas) {
+        const pct = total > 0 ? Math.round((sum / total) * 100) : 0;
+        const meta = CATEGORY_META[cat] || { icono: '📦', etiqueta: cat };
+        html += '<div class="stats-fila">';
+        html += '<span>' + meta.icono + ' ' + escapar(meta.etiqueta) + '</span>';
+        html += '<span class="cifra"><strong>' + formatoDinero(sum) + '</strong> (' + pct + '%)</span>';
+        html += '</div>';
+        html += '<div class="stats-barra"><div class="stats-barra__progreso" style="width:' + pct + '%;background:var(--basalto)"></div></div>';
+    }
+    html += '</div>';
+
+    caja.innerHTML = html;
+    $('tituloStats').textContent = 'Estadísticas · ' + g.name;
+    $('veloStats').classList.remove('oculto');
+}
+
+// ------------------------------------------------------------
+//  Compartir, Exportar y Backup
 // ------------------------------------------------------------
 function resumenTexto() {
     const g = grupo(estado.grupoActivo);
@@ -1927,7 +2311,6 @@ async function compartirBalance() {
         return;
     }
 
-    // La hoja de compartir de iOS ya ofrece WhatsApp, Mensajes y copiar.
     if (navigator.share) {
         try {
             await navigator.share({ text: texto });
@@ -1937,14 +2320,14 @@ async function compartirBalance() {
         }
     }
 
-    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+    try {
+        await navigator.clipboard.writeText(texto);
+        recado('Copiado al portapapeles');
+    } catch {
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+    }
 }
 
-// ------------------------------------------------------------
-//  Exportar a CSV
-//  Con punto y coma y coma decimal, que es lo que espera
-//  el Excel en español.
-// ------------------------------------------------------------
 function campoCSV(valor) {
     const t = String(valor ?? '');
     return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
@@ -1998,7 +2381,6 @@ function exportarCSV() {
         g.name.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, '-').replace(/^-|-$/g, '') +
         '-' + hoyISO() + '.csv';
 
-    // El BOM hace que Excel respete las tildes.
     const blob = new Blob(['\uFEFF' + construirCSV()], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
 
@@ -2013,14 +2395,33 @@ function exportarCSV() {
     recado('CSV generado');
 }
 
+function descargarBackupJSON() {
+    const datos = {
+        fecha: new Date().toISOString(),
+        perfiles: estado.perfiles,
+        grupos: estado.grupos,
+        gastos: estado.gastos,
+        liquidaciones: estado.liquidaciones,
+    };
+
+    const nombre = 'gastos-backup-' + hoyISO() + '.json';
+    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombre;
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    recado('Copia de seguridad descargada');
+}
+
 // ------------------------------------------------------------
 //  Importar CSV
-//  Entiende el CSV que exporta esta misma app y también hojas
-//  de cálculo normales, siempre que la primera fila diga qué
-//  es cada columna. Lo mínimo es concepto e importe.
 // ------------------------------------------------------------
-
-// Nombres de columna que se reconocen, en español e inglés.
 const COLUMNAS = {
     fecha:     ['fecha', 'date', 'dia', 'day'],
     tipo:      ['tipo', 'type'],
@@ -2041,7 +2442,6 @@ function sinTildes(t) {
         .trim();
 }
 
-// Lector de CSV que respeta comillas y saltos de línea dentro de un campo.
 function trocearCSV(texto, separador) {
     const filas = [];
     let fila = [];
@@ -2079,28 +2479,6 @@ function detectarSeparador(primeraLinea) {
     return candidatos[0][1] > 0 ? candidatos[0][0] : ';';
 }
 
-// "1.234,56" · "1,234.56" · "23,50" · "23.50" · "€ 12"
-function importeDesde(bruto) {
-    let t = String(bruto ?? '').replace(/[^\d.,-]/g, '').trim();
-    if (!t) return NaN;
-
-    const punto = t.includes('.');
-    const coma = t.includes(',');
-
-    if (punto && coma) {
-        if (t.lastIndexOf(',') > t.lastIndexOf('.')) t = t.replace(/\./g, '').replace(',', '.');
-        else t = t.replace(/,/g, '');
-    } else if (coma) {
-        t = /^\d{1,3}(,\d{3})+$/.test(t) ? t.replace(/,/g, '') : t.replace(',', '.');
-    } else if (punto) {
-        if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
-    }
-
-    const n = parseFloat(t);
-    // Un importe negativo en una hoja de gastos sigue siendo un gasto.
-    return Number.isFinite(n) ? Math.round(Math.abs(n) * 100) / 100 : NaN;
-}
-
 function fechaDesde(bruto) {
     const t = String(bruto ?? '').trim();
     const dosCifras = (n) => String(n).padStart(2, '0');
@@ -2115,14 +2493,9 @@ function fechaDesde(bruto) {
         let dia = Number(m[1]);
         let mes = Number(m[2]);
         const anio = m[3].length === 2 ? '20' + m[3] : m[3];
-
-        // Por defecto se lee día/mes; si el segundo número no puede ser
-        // un mes, la hoja viene al estilo americano y se cambian.
         if (mes > 12 && dia <= 12) { const cambio = dia; dia = mes; mes = cambio; }
-
         return valida(anio, mes, dia);
     }
-
     return null;
 }
 
@@ -2144,9 +2517,6 @@ function mapearCabecera(fila) {
     return mapa;
 }
 
-// Red de seguridad: si la cabecera no dice cuál es la columna del
-// pagador, se busca una cuyos valores sean casi todos nombres
-// vuestros. Vale más esto que atribuirlo todo a quien importa.
 function buscarColumnaPagador(filas, mapa) {
     const ocupadas = new Set(Object.values(mapa));
     const total = filas.length - 1;
@@ -2154,20 +2524,16 @@ function buscarColumnaPagador(filas, mapa) {
 
     for (let col = 0; col < filas[0].length; col++) {
         if (ocupadas.has(col)) continue;
-
         let aciertos = 0;
         let conValor = 0;
-
         for (let i = 1; i < filas.length; i++) {
             const v = (filas[i][col] ?? '').trim();
             if (!v) continue;
             conValor++;
             if (personaDesde(v)) aciertos++;
         }
-
         if (conValor >= 2 && aciertos / conValor >= 0.8) return col;
     }
-
     return undefined;
 }
 
@@ -2180,7 +2546,6 @@ function personaDesde(bruto) {
     return p ? p.id : null;
 }
 
-// Devuelve la fracción que asume quien pagó.
 function repartoDesde(bruto, pagadorId) {
     const t = sinTildes(bruto);
     if (!t) return 0.5;
@@ -2215,16 +2580,12 @@ function categoriaDesde(bruto) {
     return parcial || null;
 }
 
-// Si el CSV no trae categoría, se deduce del concepto con las mismas
-// pistas que usa el dictado (taxi → transporte, hotel → alojamiento…).
 function categoriaPorConcepto(concepto) {
     const t = sinTildes(concepto);
     if (!t) return null;
 
     for (const [categoria, pistas] of Object.entries(PISTAS_CATEGORIA)) {
         if (!CATEGORIES.includes(categoria)) continue;
-        // El sufijo opcional deja pasar plurales ("alojamientos",
-        // "desayunos") sin que "bar" case con "Barajas".
         if (pistas.some((p) => new RegExp('\\b' + sinTildes(p) + '(s|es)?\\b').test(t))) {
             return categoria;
         }
@@ -2232,7 +2593,6 @@ function categoriaPorConcepto(concepto) {
     return null;
 }
 
-// Analiza el texto y devuelve lo que se importaría, sin tocar nada.
 function analizarCSV(texto) {
     const bruto = String(texto || '').replace(/^\uFEFF/, '').trim();
     if (!bruto) return { error: 'No hay nada que analizar.' };
@@ -2251,7 +2611,6 @@ function analizarCSV(texto) {
         };
     }
 
-    // Si no hay columna de pagador declarada, se intenta adivinar.
     let pagadorAdivinado = false;
     if (mapa.pago === undefined) {
         const col = buscarColumnaPagador(filas, mapa);
@@ -2271,9 +2630,8 @@ function analizarCSV(texto) {
         const dato = (clave) => (mapa[clave] === undefined ? '' : (f[mapa[clave]] ?? '').trim());
 
         const concepto = dato('concepto');
-        const importe = importeDesde(dato('importe'));
+        const importe = aNumero(dato('importe'));
 
-        // La fila de totales que escribe la propia app.
         if (!concepto && !Number.isFinite(importe)) continue;
         if (/^total/i.test(sinTildes(dato('reparto')) || sinTildes(concepto))) continue;
 
@@ -2325,7 +2683,6 @@ function analizarCSV(texto) {
                         (fallos.length ? ' ' + fallos[0] : '') };
     }
 
-    // Desglose por persona, para que se vea antes de confirmar.
     const porPersona = estado.perfiles.map((p) => ({
         nombre: p.display_name,
         cuantos: gastos.filter((g) => g.paid_by === p.id).length,
@@ -2367,7 +2724,6 @@ function abrirHojaImportar() {
     $('veloImportar').classList.remove('oculto');
 }
 
-// Cuenta lo que entró por importación en el grupo activo.
 function importadosDelGrupo() {
     const esImportado = (m) => String(m.client_id || '').startsWith('imp:');
     return {
@@ -2455,7 +2811,6 @@ function pintarPrevio(r) {
             (r.liquidaciones.length ? ' · ' + r.liquidaciones.length + ' liquidación(es)' : '') +
             '</p>';
 
-    // Lo primero que hay que mirar: a quién se le atribuye cada euro.
     html += '<ul class="previo__lista">';
     for (const p of r.porPersona) {
         html += '<li><strong>' + escapar(p.nombre) + '</strong>: ' + p.cuantos +
@@ -2533,7 +2888,6 @@ async function confirmarImportacion() {
     boton.textContent = 'Importando…';
 
     try {
-        // Por lotes, para no mandar una petición gigante.
         const enLotes = async (tabla, filas) => {
             for (let i = 0; i < filas.length; i += 100) {
                 const { error } = await sb.from(tabla)
@@ -2560,7 +2914,7 @@ async function confirmarImportacion() {
 }
 
 // ------------------------------------------------------------
-//  Hoja de grupos
+//  Hoja de Grupos
 // ------------------------------------------------------------
 function abrirHojaGrupos() {
     mostrarAviso($('avisoGrupos'), '');
@@ -2620,7 +2974,6 @@ function pintarListaGrupos() {
     }
 }
 
-// Deja el grupo sin gastos ni liquidaciones, pero el grupo se queda.
 async function vaciarGrupo(g) {
     const gastos = estado.gastos.filter((x) => String(x.group_id) === String(g.id));
     const liquidaciones = estado.liquidaciones.filter((x) => String(x.group_id) === String(g.id));
@@ -2733,39 +3086,33 @@ async function borrarGrupo(g, cuantos) {
 }
 
 // ------------------------------------------------------------
-//  Dictado
-//  Convierte una frase suelta en los campos del gasto.
-//  Ejemplos que entiende:
-//    "23,50 cena en Liubliana pagó Pilar"
-//    "40 euros con 20 hotel a medias"
-//    "12 taxi ayer solo mío"
+//  Dictado Natural
 // ------------------------------------------------------------
-
-// Palabras que apuntan a una categoría sin nombrarla.
 const PISTAS_CATEGORIA = {
-    'súper':       ['supermercado', 'compra', 'mercadona', 'lidl', 'mercado', 'súper', 'super'],
-    'comer fuera': ['cena', 'cenar', 'comida', 'comer', 'desayuno', 'almuerzo',
-                    'restaurante', 'bar', 'café', 'cafe', 'copas', 'menú', 'menu',
-                    'pizza', 'helado', 'bocadillo', 'cerveza', 'bollo', 'agua'],
+    'súper':       ['supermercado', 'compra', 'mercadona', 'lidl', 'mercado', 'súper', 'super',
+                    'carrefour', 'dia', 'alcampo', 'hiperdino', 'spar', 'eroski', 'aldi', 'consum'],
+    'comer fuera': ['cena', 'cenar', 'comida', 'comer', 'desayuno', 'almuerzo', 'tapas',
+                    'restaurante', 'bar', 'café', 'cafe', 'copas', 'menú', 'menu', 'merienda',
+                    'pizza', 'pizzeria', 'helado', 'bocadillo', 'cerveza', 'cañas', 'burger'],
     'parking':     ['parking', 'aparcamiento', 'garaje', 'estacionamiento',
                     'parquímetro', 'parquimetro', 'zona azul'],
-    'alojamiento': ['hotel', 'apartamento', 'airbnb', 'hostal', 'noche', 'alojamiento'],
-    'transporte':  ['taxi', 'tren', 'bus', 'autobús', 'autobus', 'metro', 'billete',
-                    'billetes', 'gasolina', 'peaje', 'vuelo',
-                    'autopista', 'viñeta', 'ferry', 'barco'],
+    'alojamiento': ['hotel', 'apartamento', 'airbnb', 'hostal', 'noche', 'alojamiento', 'booking'],
+    'transporte':  ['taxi', 'uber', 'cabify', 'bolt', 'tren', 'renfe', 'bus', 'autobús', 'autobus',
+                    'metro', 'billete', 'billetes', 'vuelo', 'ryanair', 'vueling', 'iberia',
+                    'autopista', 'viñeta', 'ferry', 'barco', 'alsa'],
+    'coche':       ['gasolina', 'gasoil', 'diesel', 'diésel', 'peaje', 'coche', 'taller', 'itv'],
     'ocio':        ['entradas', 'entrada', 'museo', 'cine', 'concierto', 'excursión',
                     'excursion', 'visita', 'teatro', 'tour', 'castillo', 'cueva'],
-    'salud':       ['farmacia', 'médico', 'medico', 'medicinas'],
-    'coche':       ['coche', 'taller', 'itv'],
-    'casa':        ['luz', 'agua', 'internet', 'alquiler', 'ferretería', 'ferreteria'],
-    'niños':       ['niños', 'ninos', 'guardería', 'guarderia', 'colegio'],
+    'salud':       ['farmacia', 'médico', 'medico', 'medicinas', 'dentista'],
+    'casa':        ['luz', 'agua', 'internet', 'alquiler', 'ferretería', 'ferreteria', 'ikea', 'leroy'],
+    'niños':       ['niños', 'ninos', 'guardería', 'guarderia', 'colegio', 'pañales'],
+    'viajes':      ['viaje', 'excursion', 'turismo', 'maleta', 'souvenir'],
 };
 
 function escaparRegex(t) {
     return String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Quita la primera aparición de un fragmento, sin distinguir mayúsculas.
 function quitarFragmento(texto, fragmento) {
     if (!fragmento) return texto;
     const i = texto.toLowerCase().indexOf(String(fragmento).toLowerCase());
@@ -2801,7 +3148,6 @@ function interpretarDictado(bruto) {
         break;
     }
 
-    // Restos del símbolo o la palabra "euros" sueltos.
     resto = resto.replace(/\b(euros?)\b/gi, ' ').replace(/€/g, ' ');
 
     // --- Fecha ---
@@ -2817,12 +3163,7 @@ function interpretarDictado(bruto) {
     }
 
     // --- Quién pagó ---
-    // Ojo: \b no marca final de palabra detrás de una vocal acentuada,
-    // así que el cierre se hace con un "no viene otra letra".
     const FIN = '(?![a-záéíóúüñ])';
-
-    // Todas las formas de decirlo que se me ocurren: pagó, ha pagado,
-    // lo puso, invitó… El pronombre y el auxiliar son opcionales.
     const PRON = '(?:(?:lo|la|los|las|le|se)\\s+)?';
     const AUX = '(?:(?:ha|han|he|hemos|habia|había)\\s+)?';
     const VERBO = '(?:pag[oóa]|pagu[eé]|pagado|pagaron|invit[oóaé]|invito|puso|puse|pusimos|pone|pongo|puesto)';
@@ -2831,9 +3172,6 @@ function interpretarDictado(bruto) {
         '\\b' + PRON + AUX + '(?:pagu[eé]|puse|invit[eé]|pagado|puesto)(?:\\s+yo)?' + FIN, 'i'
     )) || resto.match(/\b(pago yo|pongo yo|invito yo|corre de mi cuenta)\b/i);
 
-    // "pagué" y "pagado" solo cuentan como míos si no hay un nombre
-    // pegado al verbo, ni detrás ("pagado Pilar") ni delante
-    // ("Pilar lo ha pagado").
     const nombreJunto = estado.perfiles.some((p) => {
         const n = escaparRegex(p.display_name);
         return new RegExp('\\b' + VERBO + '\\s+' + n + FIN, 'i').test(resto)
@@ -2849,18 +3187,9 @@ function interpretarDictado(bruto) {
 
         for (const p of estado.perfiles) {
             const n = escaparRegex(p.display_name);
-
-            // "lo ha pagado Pilar" · "pagó Pilar" · "invitó Pilar"
-            const detras = resto.match(new RegExp(
-                '\\b' + PRON + AUX + VERBO + '\\s+' + n + FIN, 'i'));
-
-            // "Pilar lo ha pagado" · "Pilar paga"
-            const delante = resto.match(new RegExp(
-                '\\b' + n + '\\s+' + PRON + AUX + VERBO + FIN, 'i'));
-
-            // "a cargo de Pilar" · "de parte de Pilar"
-            const rodeo = resto.match(new RegExp(
-                '\\b(?:a cargo de|de parte de|por parte de|cuenta de)\\s+' + n + FIN, 'i'));
+            const detras = resto.match(new RegExp('\\b' + PRON + AUX + VERBO + '\\s+' + n + FIN, 'i'));
+            const delante = resto.match(new RegExp('\\b' + n + '\\s+' + PRON + AUX + VERBO + FIN, 'i'));
+            const rodeo = resto.match(new RegExp('\\b(?:a cargo de|de parte de|por parte de|cuenta de)\\s+' + n + FIN, 'i'));
 
             encontrado = detras || delante || rodeo;
             if (encontrado) {
@@ -2870,8 +3199,6 @@ function interpretarDictado(bruto) {
             }
         }
 
-        // Último recurso: un nombre suelto al final, como en
-        // "60 gasolina Pilar". Es como se habla de verdad.
         if (!encontrado) {
             for (const p of estado.perfiles) {
                 const n = escaparRegex(p.display_name);
@@ -2907,13 +3234,9 @@ function interpretarDictado(bruto) {
         }
     }
 
-    // Restos de la palabra "pagó" sin nombre detrás.
-    // Barrido de restos: verbos de pago sueltos y un nombre que
-    // haya quedado colgando al final.
     resto = resto.replace(new RegExp('\\b' + PRON + AUX + VERBO + FIN, 'gi'), ' ');
     for (const p of estado.perfiles) {
-        resto = resto.replace(
-            new RegExp('\\s' + escaparRegex(p.display_name) + '\\s*$', 'i'), ' ');
+        resto = resto.replace(new RegExp('\\s' + escaparRegex(p.display_name) + '\\s*$', 'i'), ' ');
     }
     resto = resto.replace(/\byo\b/gi, ' ');
 
@@ -2932,14 +3255,9 @@ function interpretarDictado(bruto) {
         if (directa) r.categoria = directa;
     }
 
-    // --- Concepto: lo que sobra ---
+    // --- Concepto ---
     let concepto = resto.replace(/\s+/g, ' ').trim();
-
-    // Se recortan por los bordes las palabras que quedan huérfanas
-    // ("de", "lo", "y"…), pero nunca por dentro, para no romper
-    // cosas como "Cena y bollos".
-    const RELLENO = 'lo|la|los|las|le|se|que|y|de|del|en|por|para|el|un|una|' +
-                    'ha|han|he|hemos|yo|con|a|al|eso|esto';
+    const RELLENO = 'lo|la|los|las|le|se|que|y|de|del|en|por|para|el|un|una|ha|han|he|hemos|yo|con|a|al|eso|esto';
     const porDelante = new RegExp('^(?:' + RELLENO + ')\\b[\\s,.;:·-]*', 'i');
     const porDetras  = new RegExp('[\\s,.;:·-]*\\b(?:' + RELLENO + ')$', 'i');
 
@@ -2962,7 +3280,6 @@ function interpretarDictado(bruto) {
     return r;
 }
 
-// Vuelca lo interpretado en los campos de la hoja.
 function aplicarDictado(texto) {
     const r = interpretarDictado(texto);
     if (!r) return;
@@ -2990,7 +3307,6 @@ function aplicarDictado(texto) {
         puestos.push('quién pagó');
     }
 
-    // El reparto se guarda respecto de quien pagó.
     if (r.asume === 'ambos') {
         estado.formulario.reparto = 0.5;
     } else if (r.asume === estado.formulario.pagador) {
@@ -3011,7 +3327,6 @@ function aplicarDictado(texto) {
     }
 }
 
-// Micrófono del navegador, cuando el dispositivo lo permite.
 const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
 const PISTA_MICRO = 'Di el importe, en qué fue y quién pagó. Se reparten solos.';
 const PISTA_TECLADO = 'Pulsa el micro del teclado y di el importe, en qué fue y quién pagó.';
@@ -3021,7 +3336,7 @@ let paradaAutomatica = null;
 
 function pararEscucha() {
     if (escucha) {
-        try { escucha.stop(); } catch { /* ya estaba parada */ }
+        try { escucha.stop(); } catch {}
     }
 }
 
@@ -3029,7 +3344,6 @@ function prepararMicro() {
     const boton = $('botonMicro');
 
     if (!Reconocimiento) {
-        // Sin API de voz, el micro del teclado sigue sirviendo.
         boton.classList.add('oculto');
         $('pistaDictado').textContent = PISTA_TECLADO;
         return;
@@ -3043,10 +3357,7 @@ function prepararMicro() {
 
         escucha = new Reconocimiento();
         escucha.lang = 'es-ES';
-        // Continua: no se cierra en cuanto haces una pausa a mitad
-        // de frase, que era lo que cortaba el dictado antes de tiempo.
         escucha.continuous = true;
-        // Provisionales: así ves en pantalla lo que va oyendo.
         escucha.interimResults = true;
         escucha.maxAlternatives = 1;
 
@@ -3057,20 +3368,17 @@ function prepararMicro() {
             boton.setAttribute('data-escuchando', 'true');
             $('entradaDictado').value = '';
             $('pistaDictado').textContent = 'Escuchando… toca el micro otra vez para parar.';
-            // Por si el navegador no cierra solo.
             clearTimeout(paradaAutomatica);
             paradaAutomatica = setTimeout(pararEscucha, 20000);
         };
 
         escucha.onresult = (e) => {
             let provisional = '';
-
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 const trozo = e.results[i][0].transcript;
                 if (e.results[i].isFinal) acumulado += trozo + ' ';
                 else provisional += trozo;
             }
-
             $('entradaDictado').value = (acumulado + provisional).replace(/\s+/g, ' ').trim();
         };
 
@@ -3113,7 +3421,7 @@ function prepararMicro() {
 }
 
 // ------------------------------------------------------------
-//  Hoja de gasto
+//  Hoja de Gasto
 // ------------------------------------------------------------
 function pintarOpcionesPagador() {
     const caja = $('opcionesPagador');
@@ -3193,7 +3501,10 @@ function pintarOpcionesReparto() {
 
 function pintarCategorias() {
     $('entradaCategoria').innerHTML = CATEGORIES
-        .map((c) => '<option value="' + escapar(c) + '">' + escapar(c) + '</option>')
+        .map((c) => {
+            const meta = CATEGORY_META[c] || { icono: '📦', etiqueta: c };
+            return '<option value="' + escapar(c) + '">' + meta.icono + ' ' + escapar(meta.etiqueta) + '</option>';
+        })
         .join('');
 }
 
@@ -3222,7 +3533,6 @@ function abrirHojaGasto(id) {
 
     const gasto = id ? estado.gastos.find((g) => String(g.id) === String(id)) : null;
 
-    // El dictado solo tiene sentido al crear, no al corregir.
     $('entradaDictado').parentElement.classList.toggle('oculto', Boolean(gasto));
     $('pistaDictado').classList.toggle('oculto', Boolean(gasto));
 
@@ -3242,7 +3552,7 @@ function abrirHojaGasto(id) {
             estado.formulario.reparto = 'libre';
             estado.formulario.repartoLibre = Math.round(s * 100);
         }
-        $('botonBorrarGasto').classList.toggle('oculto', Boolean(gasto.pendiente));
+        $('botonBorrarGasto').classList.remove('oculto');
     } else {
         $('tituloGasto').textContent = 'Nuevo gasto';
         $('entradaImporte').value = '';
@@ -3307,11 +3617,22 @@ async function guardarGasto() {
 
     try {
         if (estado.editando) {
-            const { error } = await sb.from('expenses').update(fila).eq('id', estado.editando);
-            if (error) throw error;
-            recado('Gasto actualizado');
+            const idx = estado.gastos.findIndex((g) => String(g.id) === String(estado.editando));
+            if (idx !== -1) {
+                estado.gastos[idx] = { ...estado.gastos[idx], ...fila, pendiente: !navigator.onLine };
+            }
+
+            if (navigator.onLine) {
+                const { error } = await sb.from('expenses').update(fila).eq('id', estado.editando);
+                if (error) throw error;
+                recado('Gasto actualizado');
+            } else {
+                encolar('expenses_update', { id: estado.editando, ...fila });
+                recado('Actualizado (se sincronizará con conexión)');
+            }
             cerrarHojaGasto();
-            await refrescar();
+            guardarCache();
+            pintar();
         } else {
             fila.client_id = idCliente();
             let enviado = false;
@@ -3328,8 +3649,9 @@ async function guardarGasto() {
             } else {
                 encolar('expenses', fila);
                 estado.gastos.push({ ...fila, id: fila.client_id, pendiente: true });
-                recado('Guardado, se enviará al recuperar la conexión');
+                recado('Guardado localmente, se enviará con conexión');
                 cerrarHojaGasto();
+                guardarCache();
                 pintar();
             }
         }
@@ -3344,19 +3666,28 @@ async function borrarGasto() {
     if (!estado.editando) return;
     if (!confirm('¿Borrar este gasto? No se puede deshacer.')) return;
 
+    const idGasto = estado.editando;
+    estado.gastos = estado.gastos.filter((g) => String(g.id) !== String(idGasto));
+
     try {
-        const { error } = await sb.from('expenses').delete().eq('id', estado.editando);
-        if (error) throw error;
-        recado('Gasto borrado');
+        if (navigator.onLine) {
+            const { error } = await sb.from('expenses').delete().eq('id', idGasto);
+            if (error) throw error;
+            recado('Gasto borrado');
+        } else {
+            encolar('expenses_delete', { id: idGasto });
+            recado('Borrado (se sincronizará con conexión)');
+        }
         cerrarHojaGasto();
-        await refrescar();
+        guardarCache();
+        pintar();
     } catch (error) {
         mostrarAviso($('avisoGasto'), traducirError(error));
     }
 }
 
 // ------------------------------------------------------------
-//  Hoja de liquidación
+//  Hoja de Liquidación (Saldar y Editar Liquidación)
 // ------------------------------------------------------------
 function abrirHojaLiquidar() {
     if (!grupo(estado.grupoActivo)) {
@@ -3368,9 +3699,12 @@ function abrirHojaLiquidar() {
         return;
     }
 
+    estado.editandoLiquidacion = null;
     const saldo = calcularSaldo();
     mostrarAviso($('avisoLiquidar'), '');
     $('tituloLiquidar').textContent = 'Saldar · ' + grupo(estado.grupoActivo).name;
+    $('botonBorrarLiquidar').classList.add('oculto');
+    $('entradaFechaLiquidar').value = hoyISO();
 
     if (Math.abs(saldo) < 0.005) {
         $('resumenLiquidar').innerHTML =
@@ -3392,48 +3726,92 @@ function abrirHojaLiquidar() {
     $('veloLiquidar').classList.remove('oculto');
 }
 
+function abrirHojaLiquidarParaEditar(id) {
+    const l = estado.liquidaciones.find((item) => String(item.id) === String(id));
+    if (!l) return;
+
+    estado.editandoLiquidacion = id;
+    mostrarAviso($('avisoLiquidar'), '');
+    $('tituloLiquidar').textContent = 'Editar liquidación';
+    $('resumenLiquidar').innerHTML =
+        '<strong>' + formatoDinero(l.amount) + '</strong>' +
+        'Pago de ' + escapar(perfil(l.from_user).display_name) + ' a ' + escapar(perfil(l.to_user).display_name);
+
+    $('entradaImporteLiquidar').value = String(l.amount).replace('.', ',');
+    $('entradaNotaLiquidar').value = l.note || '';
+    $('entradaFechaLiquidar').value = l.settled_on || hoyISO();
+    $('botonBorrarLiquidar').classList.remove('oculto');
+    $('veloLiquidar').classList.remove('oculto');
+}
+
 async function guardarLiquidacion() {
     const importe = aNumero($('entradaImporteLiquidar').value);
+    const fecha = $('entradaFechaLiquidar').value || hoyISO();
 
     if (!Number.isFinite(importe) || importe <= 0) {
         mostrarAviso($('avisoLiquidar'), 'Escribe un importe mayor que cero.');
         return;
     }
 
-    const saldo = calcularSaldo();
-    // Paga quien debe. Si están en paz, se asume que pagas tú.
-    const paga = saldo > 0 ? estado.otro.id : estado.yo.id;
-    const cobra = saldo > 0 ? estado.yo.id : estado.otro.id;
-
-    const fila = {
-        group_id: estado.grupoActivo,
-        from_user: paga,
-        to_user: cobra,
-        amount: importe,
-        note: $('entradaNotaLiquidar').value.trim() || null,
-        settled_on: hoyISO(),
-        client_id: idCliente(),
-    };
-
     $('botonGuardarLiquidar').disabled = true;
 
     try {
-        let enviado = false;
-        if (navigator.onLine) {
-            const { error } = await sb.from('settlements').insert(fila);
-            if (!error) enviado = true;
-        }
+        if (estado.editandoLiquidacion) {
+            const filaUpdate = {
+                amount: importe,
+                note: $('entradaNotaLiquidar').value.trim() || null,
+                settled_on: fecha,
+            };
 
-        if (enviado) {
-            recado('Pago registrado');
+            const idx = estado.liquidaciones.findIndex((l) => String(l.id) === String(estado.editandoLiquidacion));
+            if (idx !== -1) {
+                estado.liquidaciones[idx] = { ...estado.liquidaciones[idx], ...filaUpdate, pendiente: !navigator.onLine };
+            }
+
+            if (navigator.onLine) {
+                const { error } = await sb.from('settlements').update(filaUpdate).eq('id', estado.editandoLiquidacion);
+                if (error) throw error;
+                recado('Liquidación actualizada');
+            } else {
+                encolar('settlements_update', { id: estado.editandoLiquidacion, ...filaUpdate });
+                recado('Actualizada (se sincronizará con conexión)');
+            }
             $('veloLiquidar').classList.add('oculto');
-            await refrescar();
-        } else {
-            encolar('settlements', fila);
-            estado.liquidaciones.push({ ...fila, id: fila.client_id, pendiente: true });
-            recado('Guardado, se enviará al recuperar la conexión');
-            $('veloLiquidar').classList.add('oculto');
+            guardarCache();
             pintar();
+        } else {
+            const saldo = calcularSaldo();
+            const paga = saldo > 0 ? estado.otro.id : estado.yo.id;
+            const cobra = saldo > 0 ? estado.yo.id : estado.otro.id;
+
+            const fila = {
+                group_id: estado.grupoActivo,
+                from_user: paga,
+                to_user: cobra,
+                amount: importe,
+                note: $('entradaNotaLiquidar').value.trim() || null,
+                settled_on: fecha,
+                client_id: idCliente(),
+            };
+
+            let enviado = false;
+            if (navigator.onLine) {
+                const { error } = await sb.from('settlements').insert(fila);
+                if (!error) enviado = true;
+            }
+
+            if (enviado) {
+                recado('Pago registrado');
+                $('veloLiquidar').classList.add('oculto');
+                await refrescar();
+            } else {
+                encolar('settlements', fila);
+                estado.liquidaciones.push({ ...fila, id: fila.client_id, pendiente: true });
+                recado('Guardado, se enviará con conexión');
+                $('veloLiquidar').classList.add('oculto');
+                guardarCache();
+                pintar();
+            }
         }
     } catch (error) {
         mostrarAviso($('avisoLiquidar'), traducirError(error));
@@ -3442,8 +3820,32 @@ async function guardarLiquidacion() {
     }
 }
 
+async function borrarLiquidacion() {
+    if (!estado.editandoLiquidacion) return;
+    if (!confirm('¿Borrar esta liquidación? El saldo volverá a reflejar la deuda.')) return;
+
+    const idLiq = estado.editandoLiquidacion;
+    estado.liquidaciones = estado.liquidaciones.filter((l) => String(l.id) !== String(idLiq));
+
+    try {
+        if (navigator.onLine) {
+            const { error } = await sb.from('settlements').delete().eq('id', idLiq);
+            if (error) throw error;
+            recado('Liquidación borrada');
+        } else {
+            encolar('settlements_delete', { id: idLiq });
+            recado('Borrada (se sincronizará con conexión)');
+        }
+        $('veloLiquidar').classList.add('oculto');
+        guardarCache();
+        pintar();
+    } catch (error) {
+        mostrarAviso($('avisoLiquidar'), traducirError(error));
+    }
+}
+
 // ------------------------------------------------------------
-//  Tiempo real
+//  Suscripción en Tiempo Real
 // ------------------------------------------------------------
 let canal = null;
 
@@ -3459,7 +3861,7 @@ function escucharCambios() {
 }
 
 // ------------------------------------------------------------
-//  Arranque
+//  Eventos y Arranque
 // ------------------------------------------------------------
 function conectarEventos() {
     if (GOOGLE_ACTIVO) {
@@ -3480,9 +3882,12 @@ function conectarEventos() {
     $('botonSalir').addEventListener('click', salir);
     $('botonNuevoGasto').addEventListener('click', () => abrirHojaGasto(null));
     $('botonLiquidar').addEventListener('click', abrirHojaLiquidar);
+    $('botonStats').addEventListener('click', abrirHojaStats);
+    $('botonCerrarStats').addEventListener('click', () => $('veloStats').classList.add('oculto'));
 
     $('botonCompartir').addEventListener('click', compartirBalance);
     $('botonExportar').addEventListener('click', exportarCSV);
+    $('botonBackupJSON').addEventListener('click', descargarBackupJSON);
 
     $('botonImportar').addEventListener('click', abrirHojaImportar);
     $('botonElegirArchivo').addEventListener('click', () => $('entradaArchivo').click());
@@ -3493,12 +3898,33 @@ function conectarEventos() {
     $('botonDeshacerImport').addEventListener('click', deshacerImportacion);
     $('botonCerrarImportar').addEventListener('click', () => $('veloImportar').classList.add('oculto'));
 
+    // Búsqueda y Filtros
+    $('entradaBusqueda').addEventListener('input', (e) => {
+        estado.filtro.texto = e.target.value;
+        $('botonLimpiarBusqueda').classList.toggle('oculto', !e.target.value);
+        pintarLista();
+    });
+    $('botonLimpiarBusqueda').addEventListener('click', () => {
+        $('entradaBusqueda').value = '';
+        estado.filtro.texto = '';
+        $('botonLimpiarBusqueda').classList.add('oculto');
+        pintarLista();
+    });
+    $('botonResetFiltros').addEventListener('click', () => {
+        $('entradaBusqueda').value = '';
+        estado.filtro.texto = '';
+        estado.filtro.personaId = null;
+        estado.filtro.categoria = null;
+        $('botonLimpiarBusqueda').classList.add('oculto');
+        pintar();
+    });
+
     $('barraNovedades').addEventListener('click', () => {
         estado.novedadesVistas = true;
         pintarNovedades();
     });
 
-    // Al terminar de dictar (o al salir del campo) se reparten los datos.
+    // Dictado
     $('entradaDictado').addEventListener('change', (e) => aplicarDictado(e.target.value));
     $('entradaDictado').addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
@@ -3513,6 +3939,7 @@ function conectarEventos() {
     $('botonCerrarGasto').addEventListener('click', cerrarHojaGasto);
 
     $('botonGuardarLiquidar').addEventListener('click', guardarLiquidacion);
+    $('botonBorrarLiquidar').addEventListener('click', borrarLiquidacion);
     $('botonCerrarLiquidar').addEventListener('click', () => $('veloLiquidar').classList.add('oculto'));
 
     $('botonCrearGrupo').addEventListener('click', crearGrupo);
@@ -3521,18 +3948,25 @@ function conectarEventos() {
     });
     $('botonCerrarGrupos').addEventListener('click', () => $('veloGrupos').classList.add('oculto'));
 
-    for (const idVelo of ['veloGasto', 'veloLiquidar', 'veloGrupos', 'veloImportar']) {
+    for (const idVelo of ['veloGasto', 'veloLiquidar', 'veloGrupos', 'veloImportar', 'veloStats']) {
         $(idVelo).addEventListener('click', (e) => {
             if (e.target.id === idVelo) $(idVelo).classList.add('oculto');
         });
     }
 
     document.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
-        $('veloGasto').classList.add('oculto');
-        $('veloLiquidar').classList.add('oculto');
-        $('veloGrupos').classList.add('oculto');
-        $('veloImportar').classList.add('oculto');
+        if (e.key === 'Escape') {
+            $('veloGasto').classList.add('oculto');
+            $('veloLiquidar').classList.add('oculto');
+            $('veloGrupos').classList.add('oculto');
+            $('veloImportar').classList.add('oculto');
+            $('veloStats').classList.add('oculto');
+        } else if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            if (!$('pantallaApp').classList.contains('oculto') && $('veloGasto').classList.contains('oculto')) {
+                e.preventDefault();
+                abrirHojaGasto(null);
+            }
+        }
     });
 
     window.addEventListener('online', async () => {
@@ -3553,8 +3987,6 @@ async function entrarEnLaApp() {
     $('pantallaAcceso').classList.add('oculto');
     $('pantallaApp').classList.remove('oculto');
 
-    // Se apunta cuándo fue la visita anterior antes de sobrescribirla,
-    // para poder contar lo que ha entrado mientras tanto.
     try {
         estado.desdeVisita = localStorage.getItem(CLAVE_VISITA);
         localStorage.setItem(CLAVE_VISITA, new Date().toISOString());
@@ -3571,13 +4003,21 @@ async function entrarEnLaApp() {
     await refrescar();
     await vaciarCola();
     escucharCambios();
+
+    // Atajos URL (PWA Shortcuts)
+    const params = new URLSearchParams(window.location.search);
+    const accion = params.get('accion');
+    if (accion === 'nuevo-gasto') {
+        abrirHojaGasto(null);
+    } else if (accion === 'saldar') {
+        abrirHojaLiquidar();
+    }
 }
 
 function mostrarAcceso() {
     $('pantallaApp').classList.add('oculto');
     $('pantallaAcceso').classList.remove('oculto');
 
-    // Recupera el último correo usado y deja el cursor en la contraseña.
     try {
         const recordado = localStorage.getItem(CLAVE_CORREO);
         if (recordado && !$('entradaCorreo').value) {
@@ -3612,7 +4052,6 @@ async function iniciar() {
     });
 
     if ('serviceWorker' in navigator) {
-        // Si llega una versión nueva, la app se recarga sola una vez.
         let recargando = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (recargando) return;
@@ -3622,7 +4061,6 @@ async function iniciar() {
 
         navigator.serviceWorker.register('sw.js')
             .then((registro) => {
-                // Busca actualizaciones al arrancar y al volver a la app.
                 registro.update();
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') registro.update();
