@@ -82,3 +82,23 @@ begin
 end $$;
 
 select 'Todas las comprobaciones del esquema han pasado' as resultado;
+
+-- La política de lectura de `groups` tiene que cubrir al creador: si no,
+-- `insert(...).select().single()` no devuelve nada y crear un grupo falla.
+do $$
+declare
+    expresion text;
+begin
+    select pg_get_expr(pol.polqual, pol.polrelid) into expresion
+    from pg_policy pol
+    join pg_class c on c.oid = pol.polrelid
+    where c.relname = 'groups' and pol.polname = 'groups_leer_los_mios';
+
+    if expresion is null then
+        raise exception 'No existe la política groups_leer_los_mios';
+    end if;
+
+    if expresion not like '%created_by%' then
+        raise exception 'groups_leer_los_mios no contempla al creador: crear un grupo fallaría. Expresión: %', expresion;
+    end if;
+end $$;

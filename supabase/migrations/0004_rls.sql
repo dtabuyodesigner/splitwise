@@ -72,10 +72,23 @@ create policy profiles_crear_el_mio on public.profiles
 -- ------------------------------------------------------------
 -- groups
 -- ------------------------------------------------------------
+-- El `or created_by = auth.uid()` no es opcional.
+--
+-- El frontend crea grupos con `insert({name}).select().single()`. En un
+-- INSERT ... RETURNING, PostgreSQL aplica la política de SELECT a la fila
+-- devuelta, y lo hace ANTES de que se disparen los triggers AFTER INSERT
+-- —que son los que apuntan al creador en group_members—. Con solo
+-- `es_miembro(id)`, la fila recién creada todavía no tiene ningún miembro
+-- en ese instante, así que el RETURNING no devolvería nada y CREAR UN GRUPO
+-- FALLARÍA.
+--
+-- Además cubre el caso degradado de un grupo que se quedara sin filas en
+-- group_members: quien lo creó sigue pudiendo verlo y arreglarlo, en vez de
+-- que el grupo desaparezca para todo el mundo.
 drop policy if exists groups_leer_los_mios on public.groups;
 create policy groups_leer_los_mios on public.groups
     for select to authenticated
-    using (public.es_miembro(id));
+    using (public.es_miembro(id) or created_by = auth.uid());
 
 drop policy if exists groups_crear on public.groups;
 create policy groups_crear on public.groups
