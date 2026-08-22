@@ -4,7 +4,8 @@
 |---|---|
 | Rama de trabajo | `estabilizacion/fase-1` |
 | SHA base (HEAD de `main`) | `cbc1e1336065f4184aff2e61c0df06ca22e2d25b` |
-| **SHA final de la rama** | **`9d0b78312e7ec5bd556657b5ceda1e727f32e99d`** |
+| Último commit de código | `bb3b8b31e339037923686804e4da3bde8909c1cc` |
+| SHA final de la rama | el de este commit de documentación, encima del anterior: `git rev-parse estabilizacion/fase-1` |
 | Commits | 8 |
 | Archivos tocados | 55 (3 modificados, 52 nuevos) |
 | Pruebas | **128, todas verdes** |
