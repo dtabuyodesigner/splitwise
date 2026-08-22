@@ -722,9 +722,13 @@ function pintarNovedades() {
         return;
     }
 
+    // Como en la versión anterior, se miran todos los grupos, no solo el
+    // activo. Lo que sí cambia: se compara con el id de la otra persona en
+    // lugar de "cualquiera que no sea yo", que con un tercer perfil contaba
+    // apuntes que no eran suyos.
     const nuevos = [
-        ...gastosDelGrupo().filter((g) => !g.pendiente && g.paid_by === estado.otro.id),
-        ...liquidacionesDelGrupo().filter((l) => !l.pendiente && l.from_user === estado.otro.id),
+        ...estado.gastos.filter((g) => !g.pendiente && g.paid_by === estado.otro.id),
+        ...estado.liquidaciones.filter((l) => !l.pendiente && l.from_user === estado.otro.id),
     ].filter((m) => m.created_at && m.created_at > estado.desdeVisita);
 
     if (!nuevos.length) {
@@ -2054,8 +2058,13 @@ async function entrarEnLaApp() {
     const id = miId();
     if (!id) return;
 
-    // Cambio de cuenta en el mismo dispositivo: se tira todo lo del anterior.
-    if (usuarioEnPantalla && usuarioEnPantalla !== id) location.reload();
+    // Cambio de cuenta en el mismo dispositivo: se recarga entera, para no
+    // arrastrar nada del usuario anterior. reload() no corta la ejecución
+    // por sí solo, así que hay que volver aquí mismo.
+    if (usuarioEnPantalla && usuarioEnPantalla !== id) {
+        location.reload();
+        return;
+    }
     if (usuarioEnPantalla === id) return;   // ya dentro: no se repite el arranque
     usuarioEnPantalla = id;
 
