@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { crearAlmacen, migrarDesdeEsquemaAntiguo, purgarOtrosUsuarios } from '../js/almacen.js';
-import { ColaOffline, TIPO, ejecutarTarea } from '../js/offline-queue.js';
+import { ColaOffline, TIPO, ejecutarTarea, MAX_INTENTOS } from '../js/offline-queue.js';
 import { CLASE } from '../js/errores.js';
 import {
     crearSupabaseFalso, crearAlmacenFalso,
@@ -150,6 +150,47 @@ test('vaciar dos veces a la vez no envía nada dos veces', async () => {
 
     assert.equal(a.enviadas + b.enviadas, 5);
     assert.equal(sb.tablas.expenses.length, 5);
+});
+
+test('la red que nunca vuelve no deja la tarea reintentándose para siempre', async () => {
+    const sb = crearSupabaseFalso();
+    const { cola } = montar();
+    cola.encolar(TIPO.INSERTAR, 'expenses', gasto('c1'));
+    sb.fallar('expenses.upsert', ERROR_RED);
+
+    for (let i = 0; i < MAX_INTENTOS - 1; i++) {
+        await cola.vaciar(sb, { online: true, userIdSesion: A });
+        assert.equal(cola.pendientes.length, 1, 'sigue intentándolo');
+    }
+
+    await cola.vaciar(sb, { online: true, userIdSesion: A });
+    assert.equal(cola.pendientes.length, 0, 'agotados los intentos, deja de reintentar');
+    assert.equal(cola.fallidas.length, 1, 'pero NO se descarta: sigue ahí para el usuario');
+
+    // Vuelve la red. Hace falta un reintento explícito, y entonces se envía.
+    sb.dejarDeFallar('expenses.upsert');
+    assert.equal((await cola.vaciar(sb, { online: true, userIdSesion: A })).enviadas, 0);
+
+    cola.reintentarFallidas();
+    assert.equal((await cola.vaciar(sb, { online: true, userIdSesion: A })).enviadas, 1);
+    assert.equal(sb.tablas.expenses.length, 1, 'el gasto no se ha perdido');
+});
+
+test('descartar las fallidas las quita, y no toca las pendientes', async () => {
+    const sb = crearSupabaseFalso();
+    const { cola } = montar();
+    cola.encolar(TIPO.INSERTAR, 'expenses', gasto('rechazada'));
+    sb.fallar('expenses.upsert', ERROR_RLS, 1);
+    await cola.vaciar(sb, { online: true, userIdSesion: A });
+
+    cola.encolar(TIPO.INSERTAR, 'expenses', gasto('buena'));
+    assert.equal(cola.fallidas.length, 1);
+    assert.equal(cola.pendientes.length, 1);
+
+    cola.descartarFallidas();
+    assert.equal(cola.fallidas.length, 0);
+    assert.equal(cola.pendientes.length, 1);
+    assert.equal(cola.tareas[0].fila.client_id, 'buena');
 });
 
 // ------------------------------------------------------------
