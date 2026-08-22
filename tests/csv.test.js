@@ -211,6 +211,41 @@ test('el client_id cambia si cambia el grupo de destino', () => {
 test('huella() es determinista', () => {
     assert.equal(huella('mismo texto'), huella('mismo texto'));
     assert.notEqual(huella('a'), huella('b'));
+    assert.equal(huella('x').length, 32, '128 bits en hexadecimal');
+});
+
+test('huella() no colisiona en un corpus grande', () => {
+    // El djb2 de 32 bits del monolito producía 7 colisiones en 120.000
+    // filas, alguna entre grupos distintos. Como client_id es único en toda
+    // la tabla, una colisión hacía que el upsert SOBRESCRIBIERA un gasto
+    // existente en lugar de insertar el nuevo.
+    const vistos = new Map();
+    let colisiones = 0;
+
+    for (let g = 0; g < 3; g++) {
+        for (let i = 1; i <= 40000; i++) {
+            const clave = ['grupo' + g, i, '2026-01-01', 'Gasto ' + i, 10 + (i % 50), 'u-yo'].join('|');
+            const h = huella(clave);
+            if (vistos.has(h) && vistos.get(h) !== clave) colisiones++;
+            else vistos.set(h, clave);
+        }
+    }
+
+    assert.equal(colisiones, 0, '120.000 filas sin ninguna colisión');
+});
+
+test('dos filas distintas del mismo CSV nunca comparten client_id', () => {
+    // Si dos filas del mismo lote de 100 compartieran client_id, PostgreSQL
+    // rechazaría el lote entero con
+    // "ON CONFLICT DO UPDATE command cannot affect row a second time".
+    const filas = ['Fecha;Concepto;Importe;Pagador'];
+    for (let i = 0; i < 500; i++) filas.push('2026-01-15;Café;1,20;Dani');
+
+    const r = analizarCSV(filas.join('\n'), ctx);
+    const ids = r.gastos.map((g) => g.client_id);
+
+    assert.equal(ids.length, 500);
+    assert.equal(new Set(ids).size, 500, 'incluso con 500 filas idénticas salvo la posición');
 });
 
 // ------------------------------------------------------------

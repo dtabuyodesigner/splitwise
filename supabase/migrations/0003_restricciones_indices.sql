@@ -46,37 +46,43 @@ create unique index if not exists uq_settlements_client_id
 -- ------------------------------------------------------------
 do $$
 begin
-    if not exists (select 1 from pg_constraint where conname = 'fk_expenses_group') then
+    if not exists (select 1 from pg_constraint where conname = 'fk_expenses_group'
+                                       and conrelid = 'public.expenses'::regclass) then
         alter table public.expenses
             add constraint fk_expenses_group
             foreign key (group_id) references public.groups(id) on delete cascade;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'fk_expenses_payer') then
+    if not exists (select 1 from pg_constraint where conname = 'fk_expenses_payer'
+                                       and conrelid = 'public.expenses'::regclass) then
         alter table public.expenses
             add constraint fk_expenses_payer
             foreign key (paid_by) references public.profiles(id) on delete restrict;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'fk_settlements_group') then
+    if not exists (select 1 from pg_constraint where conname = 'fk_settlements_group'
+                                       and conrelid = 'public.settlements'::regclass) then
         alter table public.settlements
             add constraint fk_settlements_group
             foreign key (group_id) references public.groups(id) on delete cascade;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'fk_settlements_from') then
+    if not exists (select 1 from pg_constraint where conname = 'fk_settlements_from'
+                                       and conrelid = 'public.settlements'::regclass) then
         alter table public.settlements
             add constraint fk_settlements_from
             foreign key (from_user) references public.profiles(id) on delete restrict;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'fk_settlements_to') then
+    if not exists (select 1 from pg_constraint where conname = 'fk_settlements_to'
+                                       and conrelid = 'public.settlements'::regclass) then
         alter table public.settlements
             add constraint fk_settlements_to
             foreign key (to_user) references public.profiles(id) on delete restrict;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'fk_groups_creador') then
+    if not exists (select 1 from pg_constraint where conname = 'fk_groups_creador'
+                                       and conrelid = 'public.groups'::regclass) then
         alter table public.groups
             add constraint fk_groups_creador
             foreign key (created_by) references public.profiles(id) on delete set null;
@@ -93,23 +99,27 @@ end $$;
 -- ------------------------------------------------------------
 do $$
 begin
-    if not exists (select 1 from pg_constraint where conname = 'ck_expenses_importe_positivo') then
+    if not exists (select 1 from pg_constraint where conname = 'ck_expenses_importe_positivo'
+                                       and conrelid = 'public.expenses'::regclass) then
         alter table public.expenses
             add constraint ck_expenses_importe_positivo check (amount > 0) not valid;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'ck_expenses_reparto') then
+    if not exists (select 1 from pg_constraint where conname = 'ck_expenses_reparto'
+                                       and conrelid = 'public.expenses'::regclass) then
         alter table public.expenses
             add constraint ck_expenses_reparto
             check (payer_share >= 0 and payer_share <= 1) not valid;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'ck_settlements_importe_positivo') then
+    if not exists (select 1 from pg_constraint where conname = 'ck_settlements_importe_positivo'
+                                       and conrelid = 'public.settlements'::regclass) then
         alter table public.settlements
             add constraint ck_settlements_importe_positivo check (amount > 0) not valid;
     end if;
 
-    if not exists (select 1 from pg_constraint where conname = 'ck_settlements_personas_distintas') then
+    if not exists (select 1 from pg_constraint where conname = 'ck_settlements_personas_distintas'
+                                       and conrelid = 'public.settlements'::regclass) then
         alter table public.settlements
             add constraint ck_settlements_personas_distintas
             check (from_user <> to_user) not valid;

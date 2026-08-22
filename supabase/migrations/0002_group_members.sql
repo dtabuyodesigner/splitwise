@@ -112,9 +112,18 @@ create trigger tras_crear_grupo
 -- comprobado el resultado de las consultas de supabase/README.md §4.
 -- ============================================================
 
+-- OJO con el rol. `created_by` se acaba de añadir en 0001, así que TODOS los
+-- grupos que ya existían lo tendrán a NULL. Con un `case when g.created_by =
+-- p.id` a secas, nadie quedaría como 'owner' en ningún grupo histórico, y
+-- como la política `groups_borrar` exige rol 'owner', esos grupos quedarían
+-- IMBORRABLES para siempre. Por eso, en un grupo sin creador conocido, todos
+-- sus miembros entran como propietarios: es lo coherente con el estado de
+-- hecho actual (dos personas que comparten todo).
+--
 -- insert into public.group_members (group_id, user_id, role)
 -- select g.id, p.id,
---        case when g.created_by = p.id then 'owner' else 'member' end
+--        case when g.created_by is null or g.created_by = p.id
+--             then 'owner' else 'member' end
 -- from public.groups g
 -- cross join public.profiles p
 -- on conflict do nothing;
@@ -126,3 +135,11 @@ create trigger tras_crear_grupo
 --   group by g.name order by miembros;
 -- Ningún grupo debería quedar con 0 miembros: si lo hace, quedará invisible
 -- para todo el mundo en cuanto se apliquen las políticas de 0004.
+--
+-- Y ninguno debería quedarse sin propietario:
+--   select g.name from public.groups g
+--   where not exists (
+--       select 1 from public.group_members m
+--       where m.group_id = g.id and m.role = 'owner'
+--   );
+-- Si devuelve algo, esos grupos no se podrán borrar desde la app.

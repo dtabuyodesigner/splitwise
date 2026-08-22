@@ -175,11 +175,39 @@ export function buscarColumnaPagador(filas, mapa, contexto) {
     return undefined;
 }
 
-/** Hash djb2, para dar un client_id estable a cada fila importada. */
+/**
+ * Huella de 128 bits (32 caracteres hexadecimales) para dar a cada fila
+ * importada un `client_id` estable.
+ *
+ * Sustituye al djb2 de 32 bits del monolito. Aquel producía colisiones
+ * reales: 7 en un corpus de 120.000 filas, alguna entre grupos distintos.
+ * Como `client_id` es único en toda la tabla, una colisión hacía que el
+ * `upsert` SOBRESCRIBIERA un gasto existente —posiblemente de otro grupo—
+ * en lugar de insertar el nuevo. Es decir, pérdida de un gasto sin ningún
+ * aviso.
+ *
+ * Cuatro carriles independientes (semillas y multiplicadores primos
+ * distintos, y la posición mezclada en cada paso) de 32 bits cada uno. Con
+ * 128 bits, la probabilidad de colisión es despreciable a cualquier escala
+ * que esta aplicación pueda alcanzar.
+ */
 export function huella(txt) {
-    let h = 5381;
-    for (let i = 0; i < txt.length; i++) h = ((h * 33) ^ txt.charCodeAt(i)) >>> 0;
-    return h.toString(16);
+    const t = String(txt);
+    const semillas = [0x811c9dc5, 0x1505, 0xdeadbeef, 0x27d4eb2f];
+    const primos = [16777619, 33, 31, 2654435761];
+    const carriles = semillas.slice();
+
+    for (let i = 0; i < t.length; i++) {
+        const c = t.charCodeAt(i);
+        for (let k = 0; k < 4; k++) {
+            // Math.imul mantiene la multiplicación en 32 bits enteros:
+            // sin él, JavaScript pierde precisión por encima de 2^53.
+            carriles[k] = (Math.imul(carriles[k] ^ (c + k * 7 + i), primos[k]) ^
+                           (carriles[k] >>> 15)) >>> 0;
+        }
+    }
+
+    return carriles.map((v) => (v >>> 0).toString(16).padStart(8, '0')).join('');
 }
 
 /**

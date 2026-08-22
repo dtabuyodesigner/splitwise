@@ -86,6 +86,44 @@ Decisiones deliberadas:
   todos los usuarios de la instancia; con la política nueva solo se ven los
   perfiles con los que se comparte algún grupo.
 
+### 4.1 Cada consulta del frontend, contra la política que la autoriza
+
+Toda operación que el cliente puede lanzar, y qué política la cubre. Es la
+comprobación que hay que rehacer cada vez que se toque `0004_rls.sql`: una
+operación sin política es la app rota, y una política de más es una fuga.
+
+| Dónde | Operación | Política que la autoriza |
+|---|---|---|
+| `supabase-data.js:46` | `select('*')` sobre las 5 tablas | `profiles_leer`, `groups_leer_los_mios`, `miembros_leer`, `gastos_leer`, `liquidaciones_leer` |
+| `supabase-data.js:132` | `groups.insert().select().single()` | `groups_crear` + `groups_leer_los_mios` **para el RETURNING** |
+| `supabase-data.js:137` | `group_members.insert()` | `miembros_invitar` |
+| `mutaciones.js:46` | `expenses/settlements.insert()` | `gastos_crear` / `liquidaciones_crear` |
+| `mutaciones.js:106` | `update().eq('id').select('id')` | `gastos_modificar` (USING + CHECK) + la de SELECT |
+| `mutaciones.js:167` | `delete().eq('id').select('id')` | `gastos_borrar` + la de SELECT |
+| `offline-queue.js:239` | `upsert(onConflict:'client_id')` | `gastos_crear` **y** `gastos_modificar`: un upsert es `ON CONFLICT DO UPDATE` y necesita las dos |
+| `offline-queue.js:253/270` | `update` / `delete` con `select('id')` | igual que las de `mutaciones.js` |
+| `app.js:998/1002` | `delete().eq('group_id').like('client_id','imp:%')` | `gastos_borrar` / `liquidaciones_borrar` |
+| `app.js:1113` | `upsert` por lotes de la importación | `gastos_crear` + `gastos_modificar` |
+| `app.js:1221/1223` | `delete().eq('group_id')` (vaciar grupo) | `gastos_borrar` / `liquidaciones_borrar` |
+| `app.js:1274` | `groups.update({name}).select('id')` | `groups_modificar` + la de SELECT |
+| `app.js:1298` | `groups.delete().select('id')` | `groups_borrar` (solo `owner`) + la de SELECT |
+
+Dos trampas que este repaso destapó y que ya están corregidas:
+
+1. **`INSERT ... RETURNING` aplica la política de SELECT.** Y lo hace *antes*
+   de que corran los triggers `AFTER INSERT`. El trigger que apunta al
+   creador en `group_members` todavía no ha corrido cuando se evalúa el
+   RETURNING, así que con una política de solo `es_miembro(id)` **crear un
+   grupo habría fallado**. Por eso `groups_leer_los_mios` incluye
+   `or created_by = auth.uid()`.
+2. **Un `upsert` necesita política de UPDATE, no solo de INSERT.** La cola
+   offline y la importación de CSV usan `upsert(onConflict:'client_id')`,
+   que se traduce a `ON CONFLICT DO UPDATE`. Sin `gastos_modificar`,
+   sincronizar la cola fallaría con un error de permisos.
+
+`supabase/pruebas/99_comprobaciones.sql` comprueba la primera de las dos en
+CI, para que no se pierda si alguien reescribe la política.
+
 ---
 
 ## 5. Lo que sí está implementado en esta fase (lado cliente)

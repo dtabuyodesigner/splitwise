@@ -91,6 +91,12 @@ jobs:
       - name: Comprobar el esquema resultante
         run: psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql
 
+      - name: Pruebas de seguridad ejecutando consultas reales
+        # Suplanta a usuarios concretos y comprueba que un extraño no puede
+        # leer, escribir ni autoinvitarse a un grupo ajeno. Todo dentro de una
+        # transacción que termina en ROLLBACK, sobre la base desechable.
+        run: psql -v ON_ERROR_STOP=1 -f supabase/pruebas/98_seguridad_dml.sql
+
       - name: Las migraciones son idempotentes
         # Volver a aplicarlas no debe fallar: es lo que permite reejecutarlas
         # sin miedo si una se queda a medias.

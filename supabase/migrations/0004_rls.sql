@@ -127,16 +127,64 @@ create policy miembros_leer on public.group_members
     for select to authenticated
     using (public.es_miembro(group_id));
 
+-- CUIDADO al tocar esta política.
+--
+-- Una versión anterior tenía una rama "si el grupo aún no tiene miembros,
+-- puedes apuntarte" escrita como `not exists (select 1 from group_members
+-- where group_id = ...)`. Era un BYPASS DE AUTORIZACIÓN COMPLETO: esa
+-- subconsulta pasa por RLS, y para quien no es miembro la política de SELECT
+-- (`miembros_leer`) la deja siempre vacía. O sea, `not exists` era TRUE para
+-- CUALQUIER grupo ajeno, y bastaba un POST a /rest/v1/group_members para
+-- meterse en el grupo de otra persona y leer todos sus gastos.
+--
+-- La regla es: dentro de una política, una subconsulta a una tabla con RLS
+-- no dice "existe", dice "existe y yo puedo verlo". Nunca uses `not exists`
+-- sobre una tabla protegida para decidir un permiso.
+--
+-- El alta del creador NO necesita rama propia: la hace el trigger
+-- `apuntar_creador_como_miembro` de 0002, que es SECURITY DEFINER y no pasa
+-- por esta política. La segunda rama de aquí es solo una red de seguridad
+-- por si ese trigger no llegó a ejecutarse, y es segura porque se apoya en
+-- `groups.created_by`, que solo el propio creador satisface.
 drop policy if exists miembros_invitar on public.group_members;
 create policy miembros_invitar on public.group_members
     for insert to authenticated
     with check (
-        -- alta del propio creador al crear el grupo...
-        (user_id = auth.uid() and not exists (
-            select 1 from public.group_members m where m.group_id = group_members.group_id
-        ))
-        -- ...o invitación hecha por alguien que ya es miembro
-        or public.es_miembro(group_id)
+        -- invitación hecha por alguien que YA es miembro
+        public.es_miembro(group_id)
+        -- o el creador del grupo apuntándose a sí mismo
+        or (
+            user_id = auth.uid()
+            and exists (
+                select 1 from public.groups g
+                where g.id = group_members.group_id
+                  and g.created_by = auth.uid()
+            )
+        )
+    );
+
+-- Cambiar el rol de alguien: solo el propietario del grupo.
+-- Sin esta política, un grupo cuyo `owner` se perdiera en el backfill se
+-- quedaría sin nadie que pudiera borrarlo, y sin forma de arreglarlo desde
+-- el cliente.
+drop policy if exists miembros_cambiar_rol on public.group_members;
+create policy miembros_cambiar_rol on public.group_members
+    for update to authenticated
+    using (
+        exists (
+            select 1 from public.group_members m
+            where m.group_id = group_members.group_id
+              and m.user_id = auth.uid()
+              and m.role = 'owner'
+        )
+    )
+    with check (
+        exists (
+            select 1 from public.group_members m
+            where m.group_id = group_members.group_id
+              and m.user_id = auth.uid()
+              and m.role = 'owner'
+        )
     );
 
 drop policy if exists miembros_expulsar on public.group_members;

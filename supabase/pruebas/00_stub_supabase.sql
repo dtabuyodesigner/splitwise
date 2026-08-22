@@ -25,9 +25,19 @@ create table if not exists auth.users (
     created_at          timestamptz not null default now()
 );
 
--- En Supabase devuelve el id del usuario del JWT. Aquí, null: basta para
--- que las políticas compilen.
+-- Igual que en Supabase: lee el `sub` del JWT. Las pruebas lo simulan con
+--   set local request.jwt.claims = '{"sub":"<uuid>"}';
 create or replace function auth.uid() returns uuid
-language sql stable as $$ select null::uuid $$;
+language sql stable as $$
+    select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')::uuid;
+$$;
 
 grant usage on schema public to anon, authenticated;
+
+-- Para que las pruebas puedan hacer `set local role authenticated`.
+do $$
+begin
+    execute 'grant authenticated to ' || quote_ident(current_user);
+    execute 'grant anon to ' || quote_ident(current_user);
+exception when others then null;   -- ya concedido
+end $$;

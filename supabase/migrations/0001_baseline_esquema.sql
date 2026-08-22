@@ -11,7 +11,9 @@
 -- sentencias son IF NOT EXISTS y no tocan ni un dato.
 -- ============================================================
 
-create extension if not exists "pgcrypto";
+-- gen_random_uuid() es nativo desde PostgreSQL 13, así que no hace falta
+-- instalar pgcrypto. (Instalarla sin `schema extensions` la dejaría en
+-- `public`, cosa que el linter de Supabase marca.)
 
 -- ------------------------------------------------------------
 -- profiles: una fila por usuario de auth.users
@@ -29,7 +31,10 @@ create table if not exists public.profiles (
 create table if not exists public.groups (
     id         uuid primary key default gen_random_uuid(),
     name       text not null,
-    created_by uuid references public.profiles(id) on delete set null,
+    -- La clave foránea de created_by se añade en 0003, con nombre explícito.
+    -- Declararla también aquí crearía una segunda FK idéntica en las bases
+    -- nuevas, porque la guarda de 0003 busca por nombre de constraint.
+    created_by uuid,
     created_at timestamptz not null default now()
 );
 
@@ -87,7 +92,9 @@ begin
         new.id,
         coalesce(
             nullif(new.raw_user_meta_data ->> 'display_name', ''),
-            split_part(new.email, '@', 1),
+            -- split_part devuelve '' —no NULL— si el correo viene vacío,
+            -- y coalesce no lo filtraría: el nombre quedaría en blanco.
+            nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
             'Sin nombre'
         ),
         case when (select count(*) from public.profiles) = 0
@@ -98,6 +105,13 @@ begin
 end;
 $$;
 
+-- `auth.users` pertenece a `supabase_auth_admin`. En la mayoría de proyectos
+-- el rol `postgres` puede crear triggers sobre ella (es el patrón que
+-- documenta la propia Supabase), pero según cómo esté provisionado el
+-- proyecto puede fallar con "must be owner of relation users". Si ocurre,
+-- hay que crear el trigger desde el editor SQL del panel de Supabase.
+-- El PostgreSQL desechable de CI no puede detectar esto, porque allí la
+-- tabla la crea el propio rol de pruebas.
 drop trigger if exists al_crear_usuario on auth.users;
 create trigger al_crear_usuario
     after insert on auth.users
