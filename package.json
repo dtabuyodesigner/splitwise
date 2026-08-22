@@ -1,0 +1,15 @@
+{
+  "name": "splitwise-gastos-compartidos",
+  "version": "16.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PWA de gastos compartidos. HTML, CSS y JavaScript vanilla sobre Supabase.",
+  "scripts": {
+    "test": "node --test tests/",
+    "test:watch": "node --test --watch tests/",
+    "verificar": "node tools/verificar.mjs",
+    "iconos": "node tools/generar-iconos.mjs",
+    "servir": "node tools/servir.mjs"
+  },
+  "engines": { "node": ">=20.11" }
+}

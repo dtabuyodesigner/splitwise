@@ -1,0 +1,102 @@
+name: CI
+
+# Ningún paso necesita secretos y ninguno habla con el Supabase de
+# producción. El trabajo `esquema` levanta un PostgreSQL vacío y desechable.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    name: Pruebas y coherencia
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sintaxis de todos los archivos JavaScript
+        run: |
+          for f in js/*.js tools/*.mjs tests/*.js tests/ayudas/*.mjs sw.js; do
+            node --check "$f"
+          done
+          echo "Todos los archivos parsean"
+
+      - name: JSON válido
+        run: |
+          node -e "JSON.parse(require('node:fs').readFileSync('manifest.json','utf8'))"
+          node -e "JSON.parse(require('node:fs').readFileSync('package.json','utf8'))"
+
+      - name: Pruebas automatizadas
+        run: node --test tests/
+
+      - name: Coherencia de versión, service worker e iconos
+        run: node tools/verificar.mjs
+
+      - name: Los iconos se pueden regenerar sin cambios
+        # Si regenerarlos produce un diff, es que alguien los ha tocado a mano
+        # y el generador ha quedado desfasado.
+        run: |
+          node tools/generar-iconos.mjs
+          git diff --exit-code -- icons/
+
+  esquema:
+    name: Las migraciones compilan
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: prueba
+          POSTGRES_DB: prueba
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+        ports: ['5432:5432']
+
+    env:
+      PGPASSWORD: prueba
+      PGHOST: localhost
+      PGUSER: postgres
+      PGDATABASE: prueba
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Aplicar las migraciones sobre una base vacía y desechable
+        # Esto NO toca ninguna base real. Sirve para comprobar que el SQL del
+        # repositorio compila y deja el esquema en el estado esperado.
+        run: |
+          set -e
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql
+          for f in supabase/migrations/*.sql; do
+            echo "── aplicando $f"
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Comprobar el esquema resultante
+        run: psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql
+
+      - name: Las migraciones son idempotentes
+        # Volver a aplicarlas no debe fallar: es lo que permite reejecutarlas
+        # sin miedo si una se queda a medias.
+        run: |
+          set -e
+          for f in supabase/migrations/*.sql; do
+            psql -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+          done
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql

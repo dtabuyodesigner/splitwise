@@ -1,0 +1,147 @@
+// ============================================================
+//  Acceso a datos
+//
+//  Corrige el riesgo R7: la carga original truncaba en 2500 gastos y 500
+//  liquidaciones, y el saldo se calculaba sobre ese conjunto recortado sin
+//  ningún aviso. Aquí se pagina hasta agotar, y si se alcanza el tope de
+//  seguridad se DEVUELVE la señal `truncado` para que la interfaz lo diga.
+//
+//  El cliente se inyecta: las pruebas usan uno falso.
+// ============================================================
+import { PAGINA, MAX_PAGINAS } from './config.js';
+import { clasificarError } from './errores.js';
+
+/** Código de PostgreSQL para "la relación no existe". */
+const TABLA_INEXISTENTE = new Set(['42P01', 'PGRST205']);
+
+function noExiste(error) {
+    if (!error) return false;
+    if (TABLA_INEXISTENTE.has(String(error.code))) return true;
+    return /does not exist|could not find the table|schema cache/i.test(error.message || '');
+}
+
+/**
+ * Trae una tabla entera paginando con `.range()`.
+ *
+ * @param {object} sb
+ * @param {string} tabla
+ * @param {object} opciones
+ * @param {(q:any)=>any} opciones.afinar  aplica orden y filtros a la consulta
+ * @param {number} opciones.pagina
+ * @param {number} opciones.maxPaginas
+ * @returns {Promise<{filas:Array, truncado:boolean, paginas:number}>}
+ */
+export async function traerTodo(sb, tabla, {
+    afinar = (q) => q,
+    pagina = PAGINA,
+    maxPaginas = MAX_PAGINAS,
+} = {}) {
+    const filas = [];
+    let p = 0;
+
+    for (; p < maxPaginas; p++) {
+        const desde = p * pagina;
+        const hasta = desde + pagina - 1;
+
+        const { data, error } = await afinar(sb.from(tabla).select('*')).range(desde, hasta);
+        if (error) throw error;
+
+        const lote = data || [];
+        filas.push(...lote);
+
+        // PostgREST puede recortar la página por su propio `max-rows`. Lo que
+        // marca el final no es "he pedido N y me han dado N", sino "me han
+        // dado menos de lo que cabía en la página".
+        if (lote.length === 0) return { filas, truncado: false, paginas: p + 1 };
+        if (lote.length < pagina) return { filas, truncado: false, paginas: p + 1 };
+    }
+
+    // Se ha alcanzado el tope de seguridad: hay más datos de los que se han
+    // traído. Quien llama DEBE avisar en lugar de calcular un saldo parcial.
+    return { filas, truncado: true, paginas: p };
+}
+
+/**
+ * Carga completa. `group_members` es opcional: si la migración todavía no se
+ * ha aplicado, se devuelve `membresias: null` y el resto sigue funcionando.
+ */
+export async function cargarTodo(sb, { online = true } = {}) {
+    const [perfiles, grupos, gastos, liquidaciones, membresias] = await Promise.all([
+        traerTodo(sb, 'profiles', { afinar: (q) => q.order('created_at') }),
+        traerTodo(sb, 'groups', { afinar: (q) => q.order('created_at') }),
+        traerTodo(sb, 'expenses', {
+            afinar: (q) => q.order('spent_on', { ascending: false })
+                            .order('created_at', { ascending: false })
+                            .order('id', { ascending: false }),
+        }),
+        traerTodo(sb, 'settlements', {
+            afinar: (q) => q.order('settled_on', { ascending: false })
+                            .order('created_at', { ascending: false })
+                            .order('id', { ascending: false }),
+        }),
+        traerMembresias(sb),
+    ]).catch((e) => { throw enriquecer(e, online); });
+
+    return {
+        perfiles: perfiles.filas,
+        grupos: grupos.filas,
+        gastos: gastos.filas,
+        liquidaciones: liquidaciones.filas,
+        membresias,
+        truncado: gastos.truncado || liquidaciones.truncado,
+    };
+}
+
+/**
+ * Membresías, o `null` si el modelo de pertenencia todavía no está en uso.
+ *
+ * `null` significa "no hay datos de pertenencia, usa el comportamiento
+ * heredado". Se devuelve en dos casos:
+ *
+ *  · la tabla no existe (la migración 0002 no se ha aplicado);
+ *  · la tabla existe pero está VACÍA — es la ventana entre crear la tabla y
+ *    ejecutar el backfill. Tratarla como una lista de membresías real
+ *    escondería todos los grupos a todo el mundo, así que se prefiere el
+ *    comportamiento anterior, que es el que la gente ya conocía.
+ *
+ * En cuanto hay una sola fila, la pertenencia manda.
+ */
+export async function traerMembresias(sb) {
+    try {
+        const { filas } = await traerTodo(sb, 'group_members', {
+            afinar: (q) => q.order('group_id'),
+        });
+        return filas.length ? filas : null;
+    } catch (e) {
+        if (noExiste(e)) return null;
+        throw e;
+    }
+}
+
+function enriquecer(error, online) {
+    const c = clasificarError(error, { online });
+    error.clasificacion = c;
+    return error;
+}
+
+/**
+ * Inserta un grupo y registra la pertenencia de quien lo crea (R12).
+ * Si `group_members` no existe todavía, el grupo se crea igual.
+ */
+export async function crearGrupo(sb, nombre, userId) {
+    const { data, error } = await sb.from('groups')
+        .insert({ name: nombre }).select().single();
+    if (error) throw error;
+
+    if (userId) {
+        const { error: eM } = await sb.from('group_members')
+            .insert({ group_id: data.id, user_id: userId, role: 'owner' });
+        if (eM && !noExiste(eM) && String(eM.code) !== '23505') {
+            // El grupo ya existe; no se deshace, pero se informa: sin
+            // pertenencia el grupo quedará invisible cuando RLS esté activa.
+            throw Object.assign(eM, { grupoCreado: data });
+        }
+    }
+
+    return data;
+}
