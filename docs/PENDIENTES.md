@@ -32,6 +32,23 @@ y el segundo sobrescribe al primero en lugar de añadirse.
 Es el precio de que reimportar el mismo archivo sea idempotente, que es la
 propiedad que se quería. Se arregla junto con el punto 1.
 
+Ojo: esto es la colisión *semántica* (mismos datos → misma marca), que es
+intencionada. La colisión de *hash* —datos distintos, misma marca— sí era un
+fallo y está corregida: `huella()` era un djb2 de 32 bits con 7 colisiones
+reales en 120.000 filas, y ahora son 128 bits con cero en 500.000.
+
+### 2b. Un CSV importado antes de la v16 y reimportado después se duplicará
+
+Al cambiar `huella()`, las filas importadas con la versión anterior tienen
+un `client_id` que la nueva ya no reproduce. Reimportar **ese mismo archivo**
+tras actualizar crearía una segunda copia en vez de reconocerla.
+
+Solo afecta a quien reimporte un archivo antiguo. El botón **Borrar lo
+importado** sigue funcionando (el prefijo `imp:` no ha cambiado), así que la
+salida existe. No se ha añadido compatibilidad hacia atrás porque exigiría
+calcular las dos huellas en cada fila y arrastrar el hash viejo
+indefinidamente.
+
 ### 3. «solo para Pilar» en el dictado se entiende como «lo pagó Pilar»
 
 `js/voice.js` busca al pagador **antes** que el reparto, así que en «libro 15
@@ -139,7 +156,27 @@ que el HTML sea válido ni que el CSS no tenga reglas rotas.
 ### 15. Las migraciones no se han ejecutado contra ningún PostgreSQL real
 
 Se ha añadido un trabajo de CI (`esquema`) que las aplica sobre un PostgreSQL
-15 vacío y desechable con un sustituto de `auth`. **Ese trabajo no se ha
-llegado a ejecutar** en esta sesión, porque no había Docker ni PostgreSQL en
-la máquina. Su primera ejecución será el primer push a GitHub, y es lo
-primero que hay que mirar.
+15 vacío y desechable con un sustituto de `auth`, comprueba el esquema
+resultante y ejecuta `98_seguridad_dml.sql`, que suplanta usuarios y verifica
+el aislamiento con consultas reales.
+
+**Ese trabajo no se ha llegado a ejecutar** en esta sesión: en la máquina de
+trabajo no había ni PostgreSQL ni Docker. Su primera ejecución será el primer
+push a GitHub, y es lo primero que hay que mirar antes de tocar producción.
+
+### 16. El trigger sobre `auth.users` puede no poder crearse
+
+`0001` crea un trigger sobre `auth.users`, que pertenece a
+`supabase_auth_admin`. Es el patrón que documenta la propia Supabase y suele
+funcionar desde el editor SQL del panel, pero según cómo esté provisionado el
+proyecto puede fallar con `must be owner of relation users`. CI no puede
+detectarlo, porque allí la tabla la crea el propio rol de pruebas.
+
+### 17. `es_miembro()` se evalúa una vez por fila en las consultas grandes
+
+Las políticas llaman a `public.es_miembro(group_id)`, marcada `stable`, así
+que PostgreSQL puede cachearla dentro de una misma consulta. Con el volumen
+actual no es un problema, pero si algún día un grupo tiene decenas de miles
+de gastos conviene medirlo con `explain (analyze, buffers)` y valorar
+sustituirla por un `exists` correlacionado directo o un `IN` sobre una
+subconsulta materializada.

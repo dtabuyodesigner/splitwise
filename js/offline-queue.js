@@ -274,6 +274,16 @@ export async function ejecutarTarea(sb, tarea, { online = true } = {}) {
                 return { ok: false, clase: c.clase, mensaje: c.mensaje };
             }
             // Borrar algo que ya no está es el resultado deseado.
+            //
+            // Aquí SÍ se acepta el "0 filas" que en `mutaciones.js` se
+            // rechaza, y es deliberado. Si una política impidiera el borrado,
+            // PostgREST devolvería 42501, no un resultado vacío. "0 filas sin
+            // error" solo puede significar que la fila no es visible para
+            // esta persona, y entonces tampoco va a reaparecer en la próxima
+            // recarga: el estado local y el servidor quedan de acuerdo.
+            //
+            // En el camino síncrono la persona está mirando la pantalla y
+            // puede reaccionar, así que allí se prefiere avisar.
             return { ok: true, yaNoEstaba: !data || data.length === 0 };
         }
 
