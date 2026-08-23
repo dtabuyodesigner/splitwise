@@ -24,6 +24,7 @@ import {
 import { ColaOffline, TIPO } from './offline-queue.js';
 import { cargarTodo, crearGrupo as crearGrupoRemoto } from './supabase-data.js';
 import { crearApunte, editarApunte, borrarApunte } from './mutaciones.js';
+import { prepararFilaGasto } from './gastos.js';
 import { analizarCSV, construirCSV } from './csv.js';
 import { interpretarDictado } from './voice.js';
 
@@ -50,6 +51,10 @@ const estado = {
     cola: null,
     truncado: false,
     editando: null,
+    /** Grupo al que escribe cada hoja abierta. Se fija al abrirla y no cambia. */
+    grupoHoja: null,
+    grupoHojaLiquidar: null,
+    grupoHojaImportar: null,
     editandoLiquidacion: null,
     desdeVisita: null,
     novedadesVistas: false,
@@ -261,24 +266,44 @@ function repartirPerfiles() {
  * Comprueba que el grupo activo admite la acción y, si no, lo explica.
  * @returns {boolean} true si se puede seguir.
  */
-function grupoAdmite(accion) {
-    if (estado.tipoGrupo === TIPO_GRUPO.MULTI) {
+function grupoAdmite(accion, grupoId = estado.grupoActivo) {
+    const tipo = grupoId === estado.grupoActivo ? estado.tipoGrupo : tipoDe(grupoId);
+    if (tipo === TIPO_GRUPO.MULTI) {
         recado(accion === 'saldar'
             ? 'Saldar cuentas todavía no está disponible en grupos de más de dos personas'
             : 'Este grupo tiene más de dos participantes; el reparto múltiple todavía no está disponible');
         return false;
     }
-    if (estado.tipoGrupo === TIPO_GRUPO.AJENO) {
+    if (tipo === TIPO_GRUPO.AJENO) {
         recado('No perteneces a este grupo');
         return false;
     }
-    if (estado.tipoGrupo === TIPO_GRUPO.SOLO && accion !== 'gasto') {
+    if (tipo === TIPO_GRUPO.SOLO && accion !== 'gasto') {
         recado(accion === 'saldar'
             ? 'En un grupo individual no hay nada que saldar'
             : 'Invita a alguien al grupo antes de importar gastos compartidos');
         return false;
     }
     return true;
+}
+
+/** Contexto de pertenencia, para clasificar cualquier grupo, no solo el activo. */
+function ctxPertenencia() {
+    return {
+        membresias: estado.membresias,
+        perfiles: estado.perfiles,
+        yoId: estado.yo?.id,
+    };
+}
+
+/** Tipo de un grupo concreto, resuelto en el momento. */
+function tipoDe(grupoId) {
+    return tipoDeGrupo(grupoId, ctxPertenencia());
+}
+
+/** Ids de los miembros de un grupo concreto. */
+function miembrosDe(grupoId) {
+    return perfilesDelGrupo(grupoId, ctxPertenencia()).map((p) => p.id);
 }
 
 /** ¿Se puede calcular y enseñar un saldo en el grupo activo? */
@@ -998,7 +1023,7 @@ function contextoCSV() {
         perfiles: [estado.yo, estado.otro].filter(Boolean),
         yoId: estado.yo?.id || null,
         otroId: estado.otro?.id || null,
-        grupoId: estado.grupoActivo,
+        grupoId: estado.grupoHojaImportar ?? estado.grupoActivo,
         hoy: hoyISO(),
     };
 }
@@ -1010,6 +1035,7 @@ function abrirHojaImportar() {
         return;
     }
     if (!grupoAdmite('importar')) return;
+    estado.grupoHojaImportar = estado.grupoActivo;
 
     analisisActual = null;
     mostrarAviso($('avisoImportar'), '');
@@ -1175,6 +1201,22 @@ async function confirmarImportacion() {
 
     if (!online()) {
         mostrarAviso($('avisoImportar'), 'Para importar hace falta conexión.');
+        return;
+    }
+
+    // El destino se fijó al abrir la hoja. Se vuelve a comprobar aquí por si
+    // el grupo ha cambiado de tipo mientras la hoja estaba abierta, y que
+    // todas las filas analizadas van a ese mismo grupo y no a otro.
+    const destino = estado.grupoHojaImportar;
+    if (tipoDe(destino) !== TIPO_GRUPO.PAR) {
+        mostrarAviso($('avisoImportar'),
+            'Este grupo ya no admite importar gastos compartidos. Vuelve a abrir la hoja.');
+        return;
+    }
+    const todas = [...analisisActual.gastos, ...analisisActual.liquidaciones];
+    if (todas.some((f) => String(f.group_id) !== String(destino))) {
+        mostrarAviso($('avisoImportar'),
+            'El análisis no corresponde a este grupo. Vuelve a analizar el archivo.');
         return;
     }
 
@@ -1528,7 +1570,7 @@ function pintarOpcionesPagador() {
     const caja = $('opcionesPagador');
     caja.innerHTML = '';
 
-    for (const p of genteDelGrupo()) {
+    for (const p of perfilesDelGrupo(estado.grupoHoja ?? estado.grupoActivo, ctxPertenencia())) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'opcion';
@@ -1623,10 +1665,18 @@ function pintarCategorias() {
         .join('');
 }
 
-function pintarSelectorGrupo() {
-    $('entradaGrupo').innerHTML = misGrupos()
-        .map((g) => '<option value="' + escapar(g.id) + '">' + escapar(g.name) + '</option>')
-        .join('');
+/**
+ * Enseña a qué grupo va el gasto. Ya no es un selector.
+ *
+ * Antes era un `<select>` con todos los grupos visibles, y `guardarGasto`
+ * escribía en el grupo elegido ahí, mientras que la validación se había hecho
+ * sobre el grupo activo. Se podía abrir la hoja desde un grupo de dos y
+ * guardar en uno individual o de tres. Ahora el destino se fija al abrir la
+ * hoja y no se puede cambiar desde el formulario.
+ */
+function pintarGrupoDeLaHoja(grupoId) {
+    const g = grupo(grupoId);
+    $('entradaGrupo').textContent = g ? g.name : '—';
 }
 
 function abrirHojaGasto(id) {
@@ -1635,15 +1685,20 @@ function abrirHojaGasto(id) {
         abrirHojaGrupos();
         return;
     }
-    if (!grupoAdmite('gasto')) return;
+    const gasto = id ? estado.gastos.find((g) => String(g.id) === String(id)) : null;
+
+    // El destino se fija AQUÍ y no cambia: al editar es el grupo del propio
+    // gasto, al crear el grupo activo. Y se valida ese grupo, no el activo:
+    // se puede estar editando un gasto de otro grupo.
+    const destino = gasto ? gasto.group_id : estado.grupoActivo;
+    if (!grupoAdmite('gasto', destino)) return;
+    estado.grupoHoja = destino;
 
     mostrarAviso($('avisoGasto'), '');
     estado.editando = id || null;
-    pintarSelectorGrupo();
+    pintarGrupoDeLaHoja(destino);
     $('entradaDictado').value = '';
     if (Reconocimiento) $('pistaDictado').textContent = PISTA_MICRO;
-
-    const gasto = id ? estado.gastos.find((g) => String(g.id) === String(id)) : null;
 
     $('entradaDictado').parentElement.classList.toggle('oculto', Boolean(gasto));
     $('pistaDictado').classList.toggle('oculto', Boolean(gasto));
@@ -1654,7 +1709,6 @@ function abrirHojaGasto(id) {
         $('entradaConcepto').value = gasto.description;
         $('entradaCategoria').value = gasto.category;
         $('entradaFecha').value = gasto.spent_on;
-        $('entradaGrupo').value = gasto.group_id;
         estado.formulario.pagador = gasto.paid_by;
 
         const s = Number(gasto.payer_share);
@@ -1671,7 +1725,6 @@ function abrirHojaGasto(id) {
         $('entradaConcepto').value = '';
         $('entradaCategoria').value = CATEGORIES[0];
         $('entradaFecha').value = hoyISO();
-        $('entradaGrupo').value = estado.grupoActivo;
         estado.formulario.pagador = estado.yo?.id;
         estado.formulario.reparto = hayReparto() ? 0.5 : 1;
         $('botonBorrarGasto').classList.add('oculto');
@@ -1688,6 +1741,7 @@ function cerrarHojaGasto() {
     pararEscucha();
     $('veloGasto').classList.add('oculto');
     estado.editando = null;
+    estado.grupoHoja = null;
 }
 
 function repartoActual() {
@@ -1703,32 +1757,39 @@ function idCliente() {
 }
 
 async function guardarGasto() {
-    const importe = aNumero($('entradaImporte').value);
-    const concepto = $('entradaConcepto').value.trim();
-    const reparto = repartoActual();
+    const gastoExistente = estado.editando
+        ? estado.gastos.find((g) => String(g.id) === String(estado.editando)) || null
+        : null;
 
-    if (!Number.isFinite(importe) || importe <= 0) {
-        mostrarAviso($('avisoGasto'), 'Escribe un importe mayor que cero.');
-        return;
-    }
-    if (!concepto) {
-        mostrarAviso($('avisoGasto'), 'Falta decir en qué fue el gasto.');
-        return;
-    }
-    if (!Number.isFinite(reparto)) {
-        mostrarAviso($('avisoGasto'), 'El porcentaje tiene que estar entre 0 y 100.');
+    // El grupo de destino se recalcula aquí, justo antes de construir la fila,
+    // y NO se lee de ningún control del formulario. La validación y la
+    // escritura tienen que ir al mismo grupo.
+    const destino = gastoExistente ? gastoExistente.group_id : estado.grupoHoja;
+
+    const preparada = prepararFilaGasto({
+        grupoActivo: destino,
+        gastoExistente,
+        tipoGrupo: tipoDe(destino),
+        miembros: miembrosDe(destino),
+        yoId: estado.yo?.id || null,
+        formulario: {
+            pagador: estado.formulario.pagador,
+            reparto: repartoActual(),
+        },
+        datos: {
+            importe: aNumero($('entradaImporte').value),
+            concepto: $('entradaConcepto').value,
+            categoria: $('entradaCategoria').value,
+            fecha: $('entradaFecha').value || hoyISO(),
+        },
+    });
+
+    if (!preparada.ok) {
+        mostrarAviso($('avisoGasto'), preparada.mensaje);
         return;
     }
 
-    const fila = {
-        group_id: $('entradaGrupo').value,
-        paid_by: estado.formulario.pagador,
-        amount: importe,
-        description: concepto,
-        category: $('entradaCategoria').value,
-        payer_share: reparto,
-        spent_on: $('entradaFecha').value || hoyISO(),
-    };
+    const fila = preparada.fila;
 
     $('botonGuardarGasto').disabled = true;
     mostrarAviso($('avisoGasto'), '');
@@ -1736,7 +1797,7 @@ async function guardarGasto() {
     try {
         let r;
         if (estado.editando) {
-            const actual = estado.gastos.find((g) => String(g.id) === String(estado.editando));
+            const actual = gastoExistente;
             r = await editarApunte(sb, {
                 tabla: 'expenses',
                 lista: estado.gastos,
@@ -1805,6 +1866,7 @@ function abrirHojaLiquidar() {
         return;
     }
     if (!grupoAdmite('saldar')) return;
+    estado.grupoHojaLiquidar = estado.grupoActivo;
 
     estado.editandoLiquidacion = null;
     const saldo = saldoActual() || 0;
@@ -1836,6 +1898,10 @@ function abrirHojaLiquidar() {
 function abrirHojaLiquidarParaEditar(id) {
     const l = estado.liquidaciones.find((item) => String(item.id) === String(id));
     if (!l) return;
+
+    // Editar una liquidación de OTRO grupo: se valida ese grupo, no el activo.
+    if (!grupoAdmite('saldar', l.group_id)) return;
+    estado.grupoHojaLiquidar = l.group_id;
 
     estado.editandoLiquidacion = id;
     mostrarAviso($('avisoLiquidar'), '');
@@ -1883,9 +1949,16 @@ async function guardarLiquidacion() {
                 pendiente: Boolean(actual?.pendiente),
             });
         } else {
+            const destino = estado.grupoHojaLiquidar ?? estado.grupoActivo;
+            if (tipoDe(destino) !== TIPO_GRUPO.PAR) {
+                mostrarAviso($('avisoLiquidar'),
+                    'Este grupo ya no admite registrar pagos. Vuelve a abrir la hoja.');
+                return;
+            }
+
             const saldo = saldoActual() || 0;
             const fila = {
-                group_id: estado.grupoActivo,
+                group_id: destino,
                 from_user: saldo > 0 ? estado.otro.id : estado.yo.id,
                 to_user: saldo > 0 ? estado.yo.id : estado.otro.id,
                 amount: importe,

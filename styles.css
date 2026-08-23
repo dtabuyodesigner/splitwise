@@ -686,6 +686,18 @@ button { cursor: pointer; border: none; background: none; }
     border-left-style: dotted;
     background: var(--carta-sub);
 }
+/* El grupo de un gasto es inmutable en esta fase: se enseña, no se elige.
+   Mover un gasto de grupo será una operación explícita, no un desplegable. */
+.hoja__grupo {
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--carta-sub);
+    border: 1px solid var(--linea);
+    border-radius: var(--r-s);
+    color: var(--tiza);
+    font-size: 15px;
+}
+
 .gasto--pendiente { opacity: .65; }
 
 /* Apunte rechazado por el servidor: ni se ha guardado ni se va a reintentar

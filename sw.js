@@ -36,6 +36,7 @@ const ARCHIVOS = [
     './js/offline-queue.js',
     './js/supabase-data.js',
     './js/mutaciones.js',
+    './js/gastos.js',
     './js/csv.js',
     './js/voice.js',
     './icons/icon-192.png',

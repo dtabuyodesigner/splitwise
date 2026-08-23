@@ -97,6 +97,29 @@ migración.
 
 ## Peticiones de producto pendientes de la fase siguiente
 
+### 0.c Mover un gasto entre grupos, como operación explícita
+
+En esta fase **el grupo de un gasto es inmutable**: al crearlo sale del grupo
+activo y al editarlo se conserva el suyo. El selector de grupo de la hoja se ha
+retirado, porque permitía validar un grupo y escribir en otro.
+
+Falta la operación explícita «mover este gasto a otro grupo», con su
+confirmación y sus comprobaciones (que las personas implicadas pertenezcan al
+grupo de destino, y que ese grupo admita el reparto del gasto).
+
+**No confundir con «trasladar saldo»**, que es otra cosa:
+
+| | Mover un gasto | Trasladar saldo |
+|---|---|---|
+| Qué cambia | **Dónde ocurrió el consumo** | Solo **la deuda pendiente** |
+| El gasto histórico | Cambia de grupo | **Se queda intacto donde estaba** |
+| Total gastado del grupo de origen | Baja | No cambia |
+| Estadísticas por categoría | Se recalculan en los dos grupos | No cambian |
+| Para qué sirve | Corregir un error: se apuntó en el grupo equivocado | Arrastrar lo que se debe al grupo que se está usando |
+
+Diseño del traslado de saldo en
+[`DISENO-TRASLADO-SALDO.md`](DISENO-TRASLADO-SALDO.md).
+
 ### 0.a Grupos de más de dos personas
 
 Regla de negocio confirmada: la pertenencia se define **grupo a grupo**. Habrá
