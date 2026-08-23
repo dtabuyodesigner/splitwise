@@ -352,3 +352,71 @@ falta ningún secreto propio.
 Y aunque termine en verde, seguirá sin estar validada **contra datos reales**:
 la base de CI está vacía. Eso solo puede comprobarse con una copia de
 producción en un entorno de staging, siguiendo `supabase/README.md`.
+
+---
+
+## 9. El grupo de un gasto es inmutable
+
+Encontrado en la revisión del SHA `2bedd36`, y es un fallo de **consistencia
+entre la validación y la escritura**, no de permisos.
+
+`abrirHojaGasto()` comprobaba con `grupoAdmite('gasto')` que el **grupo activo**
+admitiera el gasto. Pero el formulario tenía un `<select id="entradaGrupo">`
+relleno con **todos** los grupos visibles, y `guardarGasto()` escribía:
+
+```js
+group_id: $('entradaGrupo').value
+```
+
+Es decir: **se validaba un grupo y se escribía en otro.** Bastaba abrir la hoja
+desde un grupo de dos, cambiar el desplegable, y guardar en un grupo individual
+o de tres. En el individual entraba un `payer_share = 0.5` o un pagador ajeno;
+en el de tres, un reparto de dos personas que el motor actual no sabe
+interpretar. Las garantías de SOLO/PAR/MULTI que se habían añadido en la ronda
+anterior quedaban sin efecto por esta vía.
+
+### Qué se ha hecho
+
+En esta fase **el grupo de un gasto no se puede cambiar**:
+
+- al crear, el destino sale del grupo activo y se fija al abrir la hoja;
+- al editar, manda `gasto.group_id`, y se valida **ese** grupo, no el activo;
+- el `<select>` se sustituye por el nombre del grupo como texto. Al ser ahora
+  un `<p>`, cualquier lectura residual de `.value` devuelve `undefined` en
+  lugar de un grupo equivocado.
+
+Y, sobre todo, **la garantía deja de depender de lo que haya pintado el
+formulario**. `js/gastos.js` es una función pura que recalcula el tipo del
+grupo de destino justo antes de construir la fila:
+
+| Grupo de destino | Qué hace |
+|---|---|
+| MULTI | Rechaza: no existe el motor de reparto multipersona |
+| AJENO | Rechaza |
+| SOLO | **Fuerza `paid_by = yo` y `payer_share = 1` en el dato**, no solo en la interfaz |
+| PAR | El pagador debe ser miembro del grupo y el reparto estar entre 0 y 1 |
+
+RLS no puede cubrir esto por sí sola: las políticas comprueban que `paid_by`
+pertenece al grupo, pero **no pueden saber** que un grupo individual debe usar
+`payer_share = 1`, ni que uno de tres todavía no debe aceptar repartos. Esa
+garantía vive hoy en el cliente, y queda anotada para trasladarla al servidor
+cuando exista el modelo definitivo.
+
+### Un fallo que destapó su propia prueba
+
+El reparto se leía con `Number(formulario.reparto)`. Y `Number(null)` es `0`,
+que **no** es un valor neutro: `0` significa «el gasto es entero de la otra
+persona». Un reparto ausente podía convertirse en eso por accidente. Ahora se
+exige un número de verdad.
+
+### El resto de caminos de escritura
+
+Se revisó el mismo patrón en liquidaciones, importación CSV, vaciado de grupo,
+borrado de grupo y deshacer importación:
+
+| Camino | Estado |
+|---|---|
+| Gastos | **Era explotable.** Corregido |
+| Liquidaciones | Validaba y escribía el mismo grupo. Aun así se fija el destino al abrir, porque Realtime puede cambiar el grupo activo con la hoja abierta |
+| Importación CSV | Igual. Además se comprueba que las filas analizadas van al grupo esperado |
+| Vaciar grupo, borrar grupo, deshacer importación | Ya operaban sobre grupos de `misGrupos()`. Sin cambios |
