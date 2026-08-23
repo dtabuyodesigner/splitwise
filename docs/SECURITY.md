@@ -86,6 +86,33 @@ Decisiones deliberadas:
   todos los usuarios de la instancia; con la política nueva solo se ven los
   perfiles con los que se comparte algún grupo.
 
+### 4.-1 El estado real de producción, y por qué la migración es delicada
+
+El inventario de solo lectura reveló dos cosas que cambian el plan:
+
+**1. RLS ya está activa, pero no protege.** Las políticas existentes conceden
+acceso global a `authenticated` con `using (true)` / `with check (true)`. Es
+decir: **hoy, cualquier cuenta autenticada puede leer y escribir todos los
+gastos, grupos y liquidaciones**, no solo los suyos. Con dos cuentas que
+comparten todo, eso no ha tenido consecuencias; con una tercera cuenta, sí las
+tendría.
+
+Y hay una trampa al migrar: **todas las políticas PERMISSIVE se combinan con
+OR**. Crear las políticas nuevas sin retirar las viejas no cierra nada — deja
+la base con apariencia de protegida sin estarlo, que es peor que no migrar.
+Por eso `0004` empieza retirando las políticas existentes de las cinco tablas
+de gastos, enumerándolas del catálogo para que ninguna sobreviva por llamarse
+como no esperábamos.
+
+**2. La base la comparten dos aplicaciones.** Además de gastos, contiene
+`viajes`, `viaje_diario`, `viaje_fotos`, la función `viajes_tocar()` y sus
+políticas. Nada de eso puede tocarse. Por eso el borrado de políticas está
+acotado a las cinco tablas de gastos y **nunca** se aplica al esquema `public`
+entero, y por eso existe una prueba de frontera que compara columnas,
+restricciones, índices, políticas, triggers, funciones, privilegios,
+pertenencia a Realtime y número de filas de esas tres tablas antes y después
+de migrar.
+
 ### 4.0 Dos trampas de RLS que ya han mordido en este proyecto
 
 Las dos aparecieron escribiendo estas políticas. Conviene tenerlas presentes

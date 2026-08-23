@@ -108,23 +108,41 @@ group by g.id, g.name, g.created_at
 order by g.created_at;
 ```
 
-#### 3.2 Tabla de decisión
+#### 3.2 Tabla de decisión — **pendiente de Dani**
 
-Con esa salida, rellena una fila por grupo y **que la confirme Dani** antes de
-escribir nada:
+El inventario de solo lectura ya se ha ejecutado. Este es el estado real, sin
+UUID ni correos:
 
-| Grupo | Gastos | Han pagado | ¿Quiénes pertenecen? | ¿Quién es owner? |
-|---|---|---|---|---|
-| *(nombre)* | *(n)* | *(Perfil 1, Perfil 2)* | **← decidir** | **← decidir** |
+| Grupo | Gastos | Liquid. | Pagadores | En liquidaciones | **¿Quién pertenece?** | **¿Quién es owner?** |
+|---|---|---|---|---|---|---|
+| Casa | 0 | 0 | — | — | ← **decidir** | ← **decidir** |
+| Slovenia | 51 | 1 | Perfil 1, Perfil 2 | Perfil 1, Perfil 2 | ← **decidir** | ← **decidir** |
+| Bierzo & Asturias | 2 | 0 | Perfil 1, Perfil 2 | — | ← **decidir** | ← **decidir** |
 
-**El pagador es una pista, no la respuesta.** No deduzcas la pertenencia solo
-de quién aparece como pagador:
+Contexto: **2 cuentas**, 2 perfiles, 3 grupos, 53 gastos y 1 liquidación. La
+tabla `group_members` todavía no existe.
 
-- alguien puede haber apuntado un gasto **en nombre de otra persona**;
-- un grupo **sin gastos** también necesita miembros y propietario;
-- se puede **pertenecer sin haber pagado nunca nada**.
+**Calidad de los datos: impecable.** Cero duplicados de `client_id`, cero
+huérfanos, cero importes no positivos, cero repartos fuera de rango, cero
+liquidaciones consigo mismo, y ninguna cuenta sin perfil. Es decir: `0003`
+puede aplicarse sin limpieza previa, y sus restricciones `CHECK` podrán
+validarse inmediatamente en lugar de quedarse en `NOT VALID`.
 
-#### 3.3 Escribir el backfill
+**Casa no tiene ninguna pista.** Sin gastos ni liquidaciones, no hay nada en
+la base de datos que diga quién pertenece a ese grupo. Solo lo sabe Dani.
+
+**El pagador es una pista, no la respuesta.** Que en Slovenia y en Bierzo &
+Asturias aparezcan los dos perfiles como pagadores hace muy probable que sean
+compartidos, pero no lo demuestra: alguien puede haber apuntado un gasto en
+nombre del otro.
+
+**Propietarios.** `groups.created_by` no existe todavía —lo añade `0001`—, así
+que por SQL **no se puede saber quién creó cada grupo**. Para un grupo
+compartido, la propuesta es **hacer `owner` a las dos personas**: es preferible
+a que el grupo se quede sin nadie que pueda administrarlo. Es una decisión de
+migración histórica, no el comportamiento futuro.
+
+#### 3.3 Escribir el backfill#### 3.3 Escribir el backfill
 
 Rellena el PASO 2 de `supabase/migrations/0002b_backfill_pertenencia.sql` con
 una línea por persona y grupo.

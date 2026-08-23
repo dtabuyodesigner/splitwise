@@ -224,9 +224,9 @@ insert into public.groups (id, name) values
 
 -- 51 gastos repartidos entre las dos personas, como el grupo grande real.
 insert into public.expenses (group_id, paid_by, amount, description, category, payer_share, spent_on, client_id)
-select 'aaaaaaaa-0000-0000-0000-0000000000f0',
-       case when i % 2 = 0 then '11111111-1111-1111-1111-111111111111'
-                           else '22222222-2222-2222-2222-222222222222' end,
+select 'aaaaaaaa-0000-0000-0000-0000000000f0'::uuid,
+       (case when i % 2 = 0 then '11111111-1111-1111-1111-111111111111'
+                            else '22222222-2222-2222-2222-222222222222' end)::uuid,
        10 + i, 'gasto ' || i, 'otros', 0.5, current_date, 'hist-' || i
 from generate_series(1, 51) as i;
 
