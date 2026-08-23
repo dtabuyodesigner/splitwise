@@ -67,58 +67,101 @@ El frontend está preparado para esta ventana: `traerMembresias()` devuelve
 comportamiento anterior. Así, dejar la tabla creada y vacía no esconde ningún
 grupo. Aun así, conviene hacer las fases 2 y 3 seguidas.
 
-### Fase 3 · Backfill
+### Fase 3 · Backfill explícito, grupo por grupo
 
-Antes de nada, ejecuta las consultas de `supabase/README.md` §4 y responde:
+> **No existe un backfill automático, y es deliberado.**
+>
+> La regla de negocio es que la pertenencia se define grupo a grupo: habrá
+> grupos de dos personas, alguno con una tercera y alguno individual.
+> Cualquier regla automática se equivoca en cuanto aparece la excepción, y
+> equivocarse aquí significa **dar acceso a los gastos de alguien a quien no
+> le corresponden**, o **dejar a una persona fuera de un grupo que sí es
+> suyo**.
 
-> ¿Hay algún grupo que solo deba ver una de las dos personas?
+Una versión anterior de este plan proponía `groups cross join profiles`. **Se
+ha retirado.** Convertiría todos los grupos en compartidos por todas las
+cuentas.
 
-**Si la respuesta es NO** (el caso esperado: una pareja que comparte todo),
-descomenta el backfill del final de `0002` y ejecútalo:
+#### 3.1 Inventario, solo lectura
+
+Ejecuta esto y revisa el resultado. Es de solo lectura y sale anonimizado, así
+que se puede pegar en una conversación sin exponer correos:
 
 ```sql
-insert into public.group_members (group_id, user_id, role)
-select g.id, p.id,
-       case when g.created_by = p.id then 'owner' else 'member' end
+with gente as (
+    select id, 'Perfil ' || row_number() over (order by created_at) as alias
+    from public.profiles
+)
+select
+    g.name                                              as grupo,
+    to_char(g.created_at, 'YYYY-MM-DD')                 as creado,
+    count(distinct e.id)                                as gastos,
+    coalesce(string_agg(distinct gente.alias, ', '), '—') as han_pagado,
+    coalesce((select string_agg(distinct h.alias, ', ')
+              from public.settlements s
+              join gente h on h.id in (s.from_user, s.to_user)
+              where s.group_id = g.id), '—')            as han_liquidado
 from public.groups g
-cross join public.profiles p
-on conflict do nothing;
+left join public.expenses e on e.group_id = g.id
+left join gente on gente.id = e.paid_by
+group by g.id, g.name, g.created_at
+order by g.created_at;
 ```
 
-**Si la respuesta es SÍ**, no uses el `cross join`. Escribe las filas a mano:
+#### 3.2 Tabla de decisión
 
-```sql
-insert into public.group_members (group_id, user_id, role) values
-    ('<uuid-grupo-compartido>', '<uuid-A>', 'owner'),
-    ('<uuid-grupo-compartido>', '<uuid-B>', 'member'),
-    ('<uuid-grupo-solo-de-A>',  '<uuid-A>', 'owner')
-on conflict do nothing;
+Con esa salida, rellena una fila por grupo y **que la confirme Dani** antes de
+escribir nada:
+
+| Grupo | Gastos | Han pagado | ¿Quiénes pertenecen? | ¿Quién es owner? |
+|---|---|---|---|---|
+| *(nombre)* | *(n)* | *(Perfil 1, Perfil 2)* | **← decidir** | **← decidir** |
+
+**El pagador es una pista, no la respuesta.** No deduzcas la pertenencia solo
+de quién aparece como pagador:
+
+- alguien puede haber apuntado un gasto **en nombre de otra persona**;
+- un grupo **sin gastos** también necesita miembros y propietario;
+- se puede **pertenecer sin haber pagado nunca nada**.
+
+#### 3.3 Escribir el backfill
+
+Rellena el PASO 2 de `supabase/migrations/0002b_backfill_pertenencia.sql` con
+una línea por persona y grupo.
+
+Si Dani confirma que **solo existen las dos cuentas** y que **todos los grupos
+históricos son comunes**, el backfill puede añadir a las dos a todos ellos.
+Incluso en ese caso:
+
+- uno de los dos debe quedar como `owner`, **o los dos** si no se puede
+  determinar con seguridad quién creó cada grupo;
+- eso es una **migración histórica y nada más**. No es el comportamiento de
+  los grupos futuros: a partir de aquí, crear un grupo mete únicamente a su
+  creador y todo lo demás va por invitación explícita.
+
+#### 3.4 Aplicar 0002 y 0002b **en la misma transacción**
+
+Entre uno y otro, `group_members` existe pero está vacía. Como la pertenencia
+es la fuente de verdad, en ese instante **nadie vería ningún grupo**. Por eso
+van juntos o no van:
+
+```bash
+psql "$URL" -v ON_ERROR_STOP=1 --single-transaction \
+  -f supabase/migrations/0002_group_members.sql \
+  -f supabase/migrations/0002b_backfill_pertenencia.sql
 ```
 
-Comprobación **obligatoria** antes de continuar:
+`0002b` termina con cuatro comprobaciones que **deshacen la transacción entera**
+si algo no cuadra:
 
-```sql
--- Ningún grupo puede quedarse sin miembros: quedaría invisible para todos.
-select g.id, g.name, count(m.user_id) as miembros
-from public.groups g
-left join public.group_members m on m.group_id = g.id
-group by g.id, g.name
-having count(m.user_id) = 0;
--- ↑ tiene que devolver CERO filas
+1. ningún grupo se queda sin miembros;
+2. ningún grupo se queda sin propietario;
+3. todo `paid_by` pertenece a su grupo;
+4. todo `from_user` y `to_user` pertenece a su grupo.
 
--- Y nadie puede haber perdido acceso a un grupo en el que tiene gastos.
-select distinct e.paid_by, e.group_id
-from public.expenses e
-where not exists (
-    select 1 from public.group_members m
-    where m.group_id = e.group_id and m.user_id = e.paid_by
-);
--- ↑ tiene que devolver CERO filas
-```
-
-Si la segunda consulta devuelve algo, significa que alguien ha pagado gastos
-en un grupo del que el backfill no le hace miembro. **Para y revisa el
-backfill**: aplicar RLS en ese estado le ocultaría sus propios gastos.
+**No se puede aplicar `0004` (RLS) hasta que las cuatro pasen.** Si un pagador
+no es miembro de su grupo, al activar RLS esa persona perdería el acceso a sus
+propios gastos.
 
 ### Fase 4 · Limpieza de datos previa a las restricciones
 

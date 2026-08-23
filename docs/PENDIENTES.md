@@ -95,7 +95,24 @@ migración.
 
 ---
 
-## Petición de producto pendiente de la fase siguiente
+## Peticiones de producto pendientes de la fase siguiente
+
+### 0.a Grupos de más de dos personas
+
+Regla de negocio confirmada: la pertenencia se define **grupo a grupo**. Habrá
+grupos de dos, alguno con una tercera persona y alguno individual.
+
+Ya implementado en esta fase: `group_members` es la fuente de verdad, un grupo
+individual funciona, uno de dos se comporta como siempre, y **uno de tres o más
+no calcula saldo** y lo dice en pantalla.
+
+Pendiente: el motor de reparto multilateral (participaciones por gasto, balance
+individual, simplificación de deudas). **Diseño en
+[`HITO-GRUPOS-MULTIPERSONA.md`](HITO-GRUPOS-MULTIPERSONA.md)**, con la
+comprobación de que el esquema actual no lo impide.
+
+También pendiente: la interfaz de invitación explícita, que no puede basarse en
+buscar usuarios porque `profiles_leer` impide enumerarlos a propósito.
 
 ### 0. Trasladar saldo entre grupos
 
