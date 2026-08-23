@@ -52,6 +52,12 @@ jobs:
     name: Las migraciones compilan
     runs-on: ubuntu-latest
 
+    # Solo para poder dejar el log del fallo como comentario en el PR.
+    # No se usa ningún secreto propio: GITHUB_TOKEN lo emite Actions.
+    permissions:
+      contents: read
+      pull-requests: write
+
     services:
       postgres:
         image: postgres:15
@@ -81,28 +87,65 @@ jobs:
         # Esto NO toca ninguna base real. Sirve para comprobar que el SQL del
         # repositorio compila y deja el esquema en el estado esperado.
         run: |
-          set -e
-          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql 2>&1 | tee -a /tmp/salida-sql.log
           for f in supabase/migrations/*.sql; do
-            echo "── aplicando $f"
-            psql -v ON_ERROR_STOP=1 -f "$f"
+            echo "── aplicando $f" | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee -a /tmp/salida-sql.log
           done
 
       - name: Comprobar el esquema resultante
-        run: psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql 2>&1 | tee -a /tmp/salida-sql.log
 
       - name: Pruebas de seguridad ejecutando consultas reales
         # Suplanta a usuarios concretos y comprueba que un extraño no puede
         # leer, escribir ni autoinvitarse a un grupo ajeno. Todo dentro de una
         # transacción que termina en ROLLBACK, sobre la base desechable.
-        run: psql -v ON_ERROR_STOP=1 -f supabase/pruebas/98_seguridad_dml.sql
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/98_seguridad_dml.sql 2>&1 | tee -a /tmp/salida-sql.log
 
       - name: Las migraciones son idempotentes
         # Volver a aplicarlas no debe fallar: es lo que permite reejecutarlas
         # sin miedo si una se queda a medias.
         run: |
-          set -e
+          set -eo pipefail
+          echo "── reaplicando las migraciones ──" | tee -a /tmp/salida-sql.log
           for f in supabase/migrations/*.sql; do
-            psql -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+            psql -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
           done
-          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Resumen del SQL ejecutado
+        if: always()
+        run: |
+          {
+            echo '### Salida de PostgreSQL'
+            echo
+            echo '```'
+            tail -n 200 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dejar el log en el PR si algo ha fallado
+        # Los logs de Actions no se pueden leer por API sin permisos extra, y
+        # un fallo de SQL sin su mensaje no es diagnosticable. Se publica como
+        # comentario para que quede a la vista de quien revisa.
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "### ❌ El trabajo \`Las migraciones compilan\` ha fallado"
+            echo
+            echo "Commit: \`${{ github.sha }}\`"
+            echo
+            echo "Últimas 150 líneas de la salida de PostgreSQL:"
+            echo
+            echo '```'
+            tail -n 150 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
+            echo '```'
+          } > /tmp/comentario.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario.md

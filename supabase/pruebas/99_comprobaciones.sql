@@ -85,8 +85,12 @@ begin
     from pg_policy pol
     join pg_class c on c.oid = pol.polrelid
     where c.relname = 'group_members'
-      and (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') like '%group_members%'
-           or coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%group_members%');
+      -- Solo un FROM sobre la propia tabla provoca recursión. Una referencia
+      -- de columna cualificada (`group_members.group_id`) dentro de una
+      -- subconsulta a OTRA tabla es legítima, y un LIKE '%group_members%' la
+      -- confundiría con una autorreferencia.
+      and (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') ~* 'from\s+(public\.)?group_members'
+           or coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') ~* 'from\s+(public\.)?group_members');
 
     if culpable is not null then
         raise exception

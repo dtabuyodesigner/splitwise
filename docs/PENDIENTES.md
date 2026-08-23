@@ -95,6 +95,28 @@ migración.
 
 ---
 
+## Petición de producto pendiente de la fase siguiente
+
+### 0. Trasladar saldo entre grupos
+
+Pedido por Dani. Ejemplo real: en «Eslovenia» Dani debe 225 € a Pilar, pero
+ahora usan «Ponferrada» y quiere llevarse la deuda allí. Después: «Eslovenia»
+a 0,00 €, «Ponferrada» con los 225 € a nombre de Dani, y **los gastos
+originales intactos** — no se copia ni se mueve ningún gasto.
+
+No puede modelarse como un gasto: duplicaría el total gastado, las
+estadísticas por categoría y los informes. Es una transferencia de deuda.
+
+**Diseño completo en [`DISENO-TRASLADO-SALDO.md`](DISENO-TRASLADO-SALDO.md).**
+
+Estado: **diseñado, no implementado.** No debe implementarse mientras el CI de
+SQL y las políticas RLS sigan sin estar verdes. Ya está comprobado que el
+modelo `group_members` y las políticas propuestas **no impiden** implementarlo
+después; de hecho `group_members` es lo que hace posible la condición «solo
+grupos donde estén las dos personas», que hoy no se podría comprobar.
+
+---
+
 ## P2 · Interfaz
 
 ### 7. No hay forma de invitar a alguien a un grupo
