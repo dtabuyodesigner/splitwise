@@ -313,16 +313,40 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Dejar el log en el PR si algo ha fallado
-        if: failure() && github.event_name == 'pull_request'
+      - name: Dejar constancia del resultado en el PR
+        # En verde publica QUÉ ha verificado, no solo que ha pasado. En rojo,
+        # el error de PostgreSQL. Los logs de Actions no se pueden leer por
+        # API, así que este es el único canal donde queda la evidencia.
+        if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ESTADO: ${{ job.status }}
         run: |
-          {
-            echo "### La actualización desde el esquema histórico ha fallado · \`${GITHUB_SHA:0:7}\`"
-            echo
-            echo '```'
-            tail -n 150 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
-            echo '```'
-          } > /tmp/comentario.md
+          COMMIT="${{ github.sha }}"
+          if [ "$ESTADO" = "success" ]; then
+            {
+              echo "### Actualización desde el esquema histórico · verde · \`${COMMIT:0:7}\`"
+              echo
+              echo "Parte del estado real de producción (RLS activa con políticas abiertas,"
+              echo "el trigger de alta existente, la app de viajes y los datos históricos),"
+              echo "aplica las migraciones encima y comprueba el resultado."
+              echo
+              echo "<details><summary>Qué ha verificado</summary>"
+              echo
+              echo '```'
+              grep -E "Punto de partida|Política histórica retirada|política\(s\) retiradas|viajes intactas|negativo:|ok · abortó|Backfill|\[BF\]|\[H0|\[U0|Frontera de viajes" \
+                   /tmp/salida-sql.log || echo "(sin detalle)"
+              echo '```'
+              echo
+              echo "</details>"
+            } > /tmp/comentario.md
+          else
+            {
+              echo "### La actualización desde el esquema histórico ha fallado · \`${COMMIT:0:7}\`"
+              echo
+              echo '```'
+              tail -n 150 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
+              echo '```'
+            } > /tmp/comentario.md
+          fi
           gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario.md
