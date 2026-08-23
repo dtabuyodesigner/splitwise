@@ -28,7 +28,7 @@ declare
     filas integer;
 begin
     select count(*) into filas from public.group_members;
-    raise notice 'Membresías tras migrar (sin backfill): %', filas;
+    raise notice 'Membresías tras migrar: % (backfill de prueba del escenario)', filas;
 end $$;
 
 set local role authenticated;
@@ -68,21 +68,30 @@ end $$;
 -- Tampoco debe poder escribir en los datos históricos.
 do $$
 declare
-    entro boolean := false;
-    tocadas integer;
+    escritas integer := 0;
+    tocadas  integer;
 begin
+    -- El id del grupo va LITERAL, no leído de public.groups: el intruso no ve
+    -- ningún grupo, así que un `insert ... select from public.groups` habría
+    -- insertado cero filas sin lanzar ningún error, y eso no demuestra nada.
+    -- Aquí el INSERT sí intenta escribir una fila concreta y tiene que ser
+    -- rechazado por la política.
     begin
-        insert into public.expenses
-            (group_id, paid_by, amount, description, category, payer_share, spent_on)
-        select id, '33333333-3333-3333-3333-333333333333', 1, 'colado', 'otros', 0.5, current_date
-        from public.groups limit 1;
-        entro := true;
+        with metidas as (
+            insert into public.expenses
+                (group_id, paid_by, amount, description, category, payer_share, spent_on)
+            values ('aaaaaaaa-0000-0000-0000-0000000000f0',
+                    '33333333-3333-3333-3333-333333333333',
+                    1, 'colado', 'otros', 0.5, current_date)
+            returning 1
+        )
+        select count(*) into escritas from metidas;
     exception when others then
-        entro := false;
+        escritas := 0;   -- rechazado: es lo que debe pasar
     end;
 
-    if entro then
-        raise exception 'FUGA: una cuenta ajena ha escrito un gasto en un grupo histórico';
+    if escritas > 0 then
+        raise exception 'FUGA: una cuenta ajena ha escrito % gasto(s) en un grupo histórico', escritas;
     end if;
     raise notice '[H02] ok — tras migrar, una cuenta ajena no puede escribir gastos';
 
