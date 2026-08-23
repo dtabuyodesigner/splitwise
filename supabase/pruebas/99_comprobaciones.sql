@@ -64,6 +64,50 @@ begin
     end if;
 end $$;
 
+-- es_owner existe, es SECURITY DEFINER y tiene search_path fijo.
+do $$
+begin
+    if not exists (
+        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'es_owner' and p.prosecdef
+    ) then
+        raise exception 'public.es_owner no existe o no es SECURITY DEFINER';
+    end if;
+end $$;
+
+-- Ninguna política de group_members puede consultar group_members: sería
+-- recursión infinita al expandir RLS.
+do $$
+declare
+    culpable text;
+begin
+    select string_agg(pol.polname, ', ') into culpable
+    from pg_policy pol
+    join pg_class c on c.oid = pol.polrelid
+    where c.relname = 'group_members'
+      and (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') like '%group_members%'
+           or coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%group_members%');
+
+    if culpable is not null then
+        raise exception
+            'Estas políticas de group_members se consultan a sí mismas y provocarán recursión: %',
+            culpable;
+    end if;
+end $$;
+
+-- El trigger que impide dejar un grupo sin propietario está instalado.
+do $$
+begin
+    if not exists (
+        select 1 from pg_trigger t join pg_class c on c.oid = t.tgrelid
+        where c.relname = 'group_members'
+          and t.tgname = 'antes_de_perder_propietario'
+          and not t.tgisinternal
+    ) then
+        raise exception 'Falta el trigger antes_de_perder_propietario en group_members';
+    end if;
+end $$;
+
 -- Realtime publica las tablas que la app escucha.
 do $$
 declare

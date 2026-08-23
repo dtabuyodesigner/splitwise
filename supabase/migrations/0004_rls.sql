@@ -106,17 +106,19 @@ create policy groups_modificar on public.groups
 drop policy if exists groups_borrar on public.groups;
 create policy groups_borrar on public.groups
     for delete to authenticated
-    using (
-        exists (
-            select 1 from public.group_members
-            where group_id = public.groups.id
-              and user_id = auth.uid()
-              and role = 'owner'
-        )
-    );
+    using (public.es_owner(id));
 
 -- ------------------------------------------------------------
 -- group_members
+--
+-- NINGUNA política de esta tabla puede consultar `group_members` en su propia
+-- expresión. Al expandir RLS, PostgreSQL vuelve a entrar en la misma relación
+-- y aborta con:
+--
+--     ERROR: infinite recursion detected in policy for relation "group_members"
+--
+-- Por eso la comprobación de propiedad va por `public.es_owner()`
+-- (SECURITY DEFINER), igual que la de pertenencia va por `public.es_miembro()`.
 --
 -- Se ven los miembros de los grupos propios. Invitar a alguien lo puede
 -- hacer cualquier miembro; expulsar, solo el propietario (o uno mismo,
@@ -170,35 +172,13 @@ create policy miembros_invitar on public.group_members
 drop policy if exists miembros_cambiar_rol on public.group_members;
 create policy miembros_cambiar_rol on public.group_members
     for update to authenticated
-    using (
-        exists (
-            select 1 from public.group_members m
-            where m.group_id = group_members.group_id
-              and m.user_id = auth.uid()
-              and m.role = 'owner'
-        )
-    )
-    with check (
-        exists (
-            select 1 from public.group_members m
-            where m.group_id = group_members.group_id
-              and m.user_id = auth.uid()
-              and m.role = 'owner'
-        )
-    );
+    using (public.es_owner(group_id))
+    with check (public.es_owner(group_id));
 
 drop policy if exists miembros_expulsar on public.group_members;
 create policy miembros_expulsar on public.group_members
     for delete to authenticated
-    using (
-        user_id = auth.uid()
-        or exists (
-            select 1 from public.group_members m
-            where m.group_id = group_members.group_id
-              and m.user_id = auth.uid()
-              and m.role = 'owner'
-        )
-    );
+    using (user_id = auth.uid() or public.es_owner(group_id));
 
 -- ------------------------------------------------------------
 -- expenses
