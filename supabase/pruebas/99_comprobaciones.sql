@@ -189,6 +189,27 @@ begin
     end if;
 end $$;
 
+-- Un único mecanismo efectivo de creación de perfiles: ni cero (un usuario
+-- nuevo no aparecería nunca) ni dos compitiendo (se pisarían).
+do $$
+declare
+    cuantos integer;
+    cuales  text;
+begin
+    select count(*), string_agg(t.tgname, ', ')
+      into cuantos, cuales
+    from pg_trigger t
+    join pg_class rel on rel.oid = t.tgrelid
+    join pg_namespace n on n.oid = rel.relnamespace
+    where n.nspname = 'auth' and rel.relname = 'users' and not t.tgisinternal;
+
+    if cuantos <> 1 then
+        raise exception
+            'Debe haber exactamente un trigger de alta sobre auth.users y hay %: %',
+            cuantos, coalesce(cuales, '(ninguno)');
+    end if;
+end $$;
+
 -- Realtime publica las tablas que la app escucha.
 do $$
 declare

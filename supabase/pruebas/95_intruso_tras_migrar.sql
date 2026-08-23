@@ -20,15 +20,18 @@ insert into auth.users (id, email, raw_user_meta_data) values
     ('33333333-3333-3333-3333-333333333333', 'intruso@ejemplo.test',
      '{"display_name":"Intruso"}');
 
--- El backfill de pertenencia NO se ha ejecutado (0002b sigue sin rellenar),
--- así que en este punto group_members está vacía y NADIE debería ver nada.
--- Se comprueba primero eso, y después que la tercera cuenta tampoco.
+-- El backfill ya se ha aplicado, así que Dani y Pilar SÍ ven sus tres
+-- grupos (lo comprueba 93). Lo que se prueba aquí es que una tercera cuenta,
+-- que no tiene ninguna membresía, no ve ni toca nada.
 do $$
 declare
     filas integer;
 begin
     select count(*) into filas from public.group_members;
-    raise notice 'Membresías tras migrar: % (backfill de prueba del escenario)', filas;
+    if filas <> 6 then
+        raise exception 'Se esperaban 6 membresías tras el backfill y hay %', filas;
+    end if;
+    raise notice 'Membresías tras el backfill: %', filas;
 end $$;
 
 set local role authenticated;

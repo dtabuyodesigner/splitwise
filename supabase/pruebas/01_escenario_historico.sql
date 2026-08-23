@@ -20,10 +20,12 @@
 -- ------------------------------------------------------------
 --  Tablas de gastos, tal y como están hoy (sin group_members)
 -- ------------------------------------------------------------
+-- Igual que en producción, según el inventario: display_name NOT NULL sin
+-- default, color NOT NULL con 'laurel' por defecto.
 create table public.profiles (
     id           uuid primary key references auth.users(id) on delete cascade,
-    display_name text,
-    color        text,
+    display_name text not null,
+    color        text not null default 'laurel',
     created_at   timestamptz not null default now()
 );
 
@@ -65,17 +67,32 @@ grant select, insert, update, delete
 -- ------------------------------------------------------------
 --  El trigger de alta que YA EXISTE en producción
 -- ------------------------------------------------------------
+-- Reproduce el comportamiento REAL inspeccionado en producción:
+-- display_name ← display_name, full_name, name o la parte anterior a la @
+-- color        ← color del metadata, o laurel para el primero y buganvilla
+--                para los siguientes. ON CONFLICT (id) DO NOTHING.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
     insert into public.profiles (id, display_name, color)
     values (
         new.id,
-        coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)),
-        case when (select count(*) from public.profiles) = 0 then 'laurel' else 'buganvilla' end
+        coalesce(
+            nullif(new.raw_user_meta_data ->> 'display_name', ''),
+            nullif(new.raw_user_meta_data ->> 'full_name', ''),
+            nullif(new.raw_user_meta_data ->> 'name', ''),
+            nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+            'Sin nombre'
+        ),
+        coalesce(
+            nullif(new.raw_user_meta_data ->> 'color', ''),
+            case when (select count(*) from public.profiles) = 0
+                 then 'laurel' else 'buganvilla' end
+        )
     )
     on conflict (id) do nothing;
     return new;
@@ -217,10 +234,12 @@ insert into auth.users (id, email, raw_user_meta_data) values
     ('11111111-1111-1111-1111-111111111111', 'p1@ejemplo.test', '{"display_name":"Perfil Uno"}'),
     ('22222222-2222-2222-2222-222222222222', 'p2@ejemplo.test', '{"display_name":"Perfil Dos"}');
 
+-- Los tres grupos históricos reales. "Casa" está VACÍO a propósito: es el
+-- que no tenía ninguna pista de pertenencia en el inventario.
 insert into public.groups (id, name) values
-    ('aaaaaaaa-0000-0000-0000-0000000000c0', 'Grupo sin gastos'),
-    ('aaaaaaaa-0000-0000-0000-0000000000f0', 'Grupo grande'),
-    ('aaaaaaaa-0000-0000-0000-0000000000b0', 'Grupo pequeno');
+    ('aaaaaaaa-0000-0000-0000-0000000000c0', 'Casa'),
+    ('aaaaaaaa-0000-0000-0000-0000000000f0', 'Slovenia'),
+    ('aaaaaaaa-0000-0000-0000-0000000000b0', 'Bierzo & Asturias');
 
 -- 51 gastos repartidos entre las dos personas, como el grupo grande real.
 insert into public.expenses (group_id, paid_by, amount, description, category, payer_share, spent_on, client_id)

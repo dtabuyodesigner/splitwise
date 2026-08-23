@@ -18,9 +18,12 @@
 -- ------------------------------------------------------------
 -- profiles: una fila por usuario de auth.users
 -- ------------------------------------------------------------
+-- Igual que en producción, comprobado por inventario: `display_name` es NOT
+-- NULL y SIN valor por defecto (lo rellena siempre el trigger de alta), y
+-- `color` es NOT NULL con 'laurel' por defecto.
 create table if not exists public.profiles (
     id           uuid primary key references auth.users(id) on delete cascade,
-    display_name text not null default 'Sin nombre',
+    display_name text not null,
     color        text not null default 'laurel',
     created_at   timestamptz not null default now()
 );
@@ -75,59 +78,80 @@ create table if not exists public.settlements (
 -- ------------------------------------------------------------
 -- Alta automática del perfil al registrarse
 --
--- Sin esto, un usuario nuevo se autentica pero nunca aparece en la app.
--- Se define con CREATE OR REPLACE para no duplicar si ya existe uno.
--- Si en el proyecto real ya hay un trigger con OTRO nombre haciendo lo
--- mismo, hay que quitar uno de los dos antes de aplicar esta migración.
--- ------------------------------------------------------------
-create or replace function public.crear_perfil_al_registrarse()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-    insert into public.profiles (id, display_name, color)
-    values (
-        new.id,
-        coalesce(
-            nullif(new.raw_user_meta_data ->> 'display_name', ''),
-            -- split_part devuelve '' —no NULL— si el correo viene vacío,
-            -- y coalesce no lo filtraría: el nombre quedaría en blanco.
-            nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
-            'Sin nombre'
-        ),
-        case when (select count(*) from public.profiles) = 0
-             then 'laurel' else 'buganvilla' end
-    )
-    on conflict (id) do nothing;
-    return new;
-end;
-$$;
-
--- ------------------------------------------------------------
--- El trigger SOLO se crea si no hay ya otro haciendo lo mismo.
+-- Producción YA tiene este mecanismo, y el inventario lo confirmó:
 --
--- El inventario de producción reveló que YA EXISTE:
---     on_auth_user_created  AFTER INSERT ON auth.users
---     EXECUTE FUNCTION public.handle_new_user()
+--     trigger  on_auth_user_created  AFTER INSERT ON auth.users
+--     función  public.handle_new_user()  · plpgsql · SECURITY DEFINER
+--              · propietario postgres · search_path=public
 --
--- Dos triggers de alta compitiendo sobre la misma tabla pueden duplicar
--- filas, pisarse el `display_name` o el `color`, o hacerse fallar entre sí.
--- Y no se puede decidir cuál sobra sin leer antes qué hace el que ya está:
--- para eso está `supabase/pruebas/inspeccion-trigger-alta.sql`.
+-- Esta migración NO lo sustituye. Lo que hace es:
 --
--- Así que esta migración NO toca `auth.users` si ya hay un trigger de
--- usuario ahí. Lo dice por consola y sigue. La función queda creada, por si
--- se decide reutilizarla, pero sin engancharse a nada.
+--   · si la función ya existe, la deja intacta;
+--   · si no existe (instalación limpia), la crea con el MISMO contrato,
+--     para que un entorno nuevo se comporte igual que producción;
+--   · el trigger solo se crea si `auth.users` no tiene ya uno.
+--
+-- El contrato de la función, tal y como está en producción:
+--   display_name ← raw_user_meta_data.display_name, o full_name, o name,
+--                  o la parte anterior a la @ del correo
+--   color        ← raw_user_meta_data.color, o 'laurel' para el primer
+--                  perfil y 'buganvilla' para los siguientes
+--   ON CONFLICT (id) DO NOTHING, y devuelve NEW
 --
 -- Nota de entorno: `auth.users` pertenece a `supabase_auth_admin`. En la
--- mayoría de proyectos el rol `postgres` puede crear triggers sobre ella (es
--- el patrón que documenta la propia Supabase), pero según cómo esté
--- provisionado puede fallar con "must be owner of relation users". Si ocurre,
--- hay que crearlo desde el editor SQL del panel.
+-- mayoría de proyectos el rol `postgres` puede crear triggers sobre ella,
+-- pero según cómo esté provisionado puede fallar con "must be owner of
+-- relation users". Si ocurre, hay que crearlo desde el editor SQL del panel.
 -- ------------------------------------------------------------
-do $$
+do $crear_funcion$
+begin
+    if exists (
+        select 1 from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'handle_new_user'
+    ) then
+        raise notice
+            'public.handle_new_user() ya existe: se conserva tal cual, no se sustituye.';
+        return;
+    end if;
+
+    execute $ddl$
+        create function public.handle_new_user()
+        returns trigger
+        language plpgsql
+        security definer
+        set search_path = public
+        as $cuerpo$
+        begin
+            insert into public.profiles (id, display_name, color)
+            values (
+                new.id,
+                coalesce(
+                    nullif(new.raw_user_meta_data ->> 'display_name', ''),
+                    nullif(new.raw_user_meta_data ->> 'full_name', ''),
+                    nullif(new.raw_user_meta_data ->> 'name', ''),
+                    nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+                    'Sin nombre'
+                ),
+                coalesce(
+                    nullif(new.raw_user_meta_data ->> 'color', ''),
+                    case when (select count(*) from public.profiles) = 0
+                         then 'laurel' else 'buganvilla' end
+                )
+            )
+            on conflict (id) do nothing;
+            return new;
+        end;
+        $cuerpo$;
+    $ddl$;
+
+    raise notice 'Creada public.handle_new_user() para una instalación limpia.';
+end
+$crear_funcion$;
+
+-- El trigger SOLO se crea si `auth.users` no tiene ya uno. Dos mecanismos de
+-- alta compitiendo pueden duplicar filas o pisarse display_name y color.
+do $crear_trigger$
 declare
     ya_existe text;
 begin
@@ -136,21 +160,18 @@ begin
     join pg_class rel on rel.oid = t.tgrelid
     join pg_namespace n on n.oid = rel.relnamespace
     where n.nspname = 'auth' and rel.relname = 'users'
-      and not t.tgisinternal
-      and t.tgname <> 'al_crear_usuario';
+      and not t.tgisinternal;
 
     if ya_existe is not null then
         raise notice
-            'auth.users ya tiene el trigger de alta "%": no se crea otro. '
-            'Revisa supabase/pruebas/inspeccion-trigger-alta.sql y decide si '
-            'reutilizarlo o sustituirlo.', ya_existe;
+            'auth.users ya tiene el trigger de alta "%": no se crea otro.', ya_existe;
         return;
     end if;
 
-    drop trigger if exists al_crear_usuario on auth.users;
-    create trigger al_crear_usuario
+    create trigger on_auth_user_created
         after insert on auth.users
-        for each row execute function public.crear_perfil_al_registrarse();
+        for each row execute function public.handle_new_user();
 
-    raise notice 'Creado el trigger al_crear_usuario sobre auth.users';
-end $$;
+    raise notice 'Creado el trigger on_auth_user_created sobre auth.users.';
+end
+$crear_trigger$;
