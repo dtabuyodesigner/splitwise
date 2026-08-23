@@ -83,6 +83,14 @@ jobs:
       - name: Instalar psql
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
+      - name: Un trigger ajeno no impide instalar el mecanismo de perfiles
+        # Esta base la comparten varias aplicaciones. Se comprueba antes de
+        # nada, sobre la base limpia, y se deshace con ROLLBACK.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql 2>&1 | tee -a /tmp/salida-sql.log
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/91_trigger_ajeno.sql 2>&1 | tee -a /tmp/salida-sql.log
+
       - name: Aplicar las migraciones sobre una base vacía y desechable
         # Esto NO toca ninguna base real. Sirve para comprobar que el SQL del
         # repositorio compila y deja el esquema en el estado esperado.
@@ -91,10 +99,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql 2>&1 | tee -a /tmp/salida-sql.log
           # Orden EXPLÍCITO: el glob depende del locale y en algunos
           # 0002b se ordena antes que 0002_group_members.
-          for f in 0001_baseline_esquema 0002_group_members 0002b_backfill_pertenencia \
-                   0003_restricciones_indices 0004_rls 0005_realtime; do
-            echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
-            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
+          # Los mismos pasos y los mismos límites transaccionales que
+          # supabase/aplicar-migraciones.sh usará en producción.
+          for paso in migrations/0001_baseline_esquema lotes/pertenencia \
+                      migrations/0003_restricciones_indices migrations/0004_rls \
+                      migrations/0005_realtime; do
+            echo "── aplicando $paso.sql" | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 --single-transaction \
+                 -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log
           done
 
       - name: Comprobar el esquema resultante
@@ -116,9 +128,11 @@ jobs:
         run: |
           set -eo pipefail
           echo "── reaplicando las migraciones ──" | tee -a /tmp/salida-sql.log
-          for f in 0001_baseline_esquema 0002_group_members 0002b_backfill_pertenencia \
-                   0003_restricciones_indices 0004_rls 0005_realtime; do
-            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
+          for paso in migrations/0001_baseline_esquema lotes/pertenencia \
+                      migrations/0003_restricciones_indices migrations/0004_rls \
+                      migrations/0005_realtime; do
+            psql -v ON_ERROR_STOP=1 --single-transaction \
+                 -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
           done
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql 2>&1 | tee -a /tmp/salida-sql.log
 
@@ -231,44 +245,52 @@ jobs:
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/96_frontera_viajes_antes.sql 2>&1 | tee -a /tmp/salida-sql.log
 
-      - name: Aplicar 0001 y 0002 sobre el estado histórico
+      - name: Aplicar 0001 sobre el estado histórico
         run: |
           set -eo pipefail
-          for f in 0001_baseline_esquema 0002_group_members; do
-            echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
-            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
-          done
+          psql -v ON_ERROR_STOP=1 --single-transaction \
+               -f supabase/migrations/0001_baseline_esquema.sql 2>&1 | tee -a /tmp/salida-sql.log
 
-      - name: El backfill ABORTA si la realidad no es la esperada
-        # Cuatro escenarios divergentes. En cada uno se altera el estado y se
-        # ejecuta el backfill real dentro de UNA transacción: al abortar, la
-        # divergencia se deshace sola y no contamina el escenario principal.
-        # Si alguno pasara, el backfill estaría asignando pertenencia sobre
-        # una realidad que no ha verificado.
+      - name: El LOTE ATÓMICO aborta entero si la realidad no es la esperada
+        # Cinco escenarios divergentes. Cada uno ejecuta el MISMO lote que se
+        # usará en producción —0002 + 0002b con --single-transaction— y exige
+        # que falle. Después, 92 comprueba que el rollback ha sido COMPLETO:
+        # que `group_members` NO ha quedado creada.
+        #
+        # Esto es lo que la versión anterior de este CI no probaba: aplicaba
+        # 0002 y 0002b en llamadas psql distintas, así que nunca ejercitó el
+        # límite transaccional real.
         run: |
           set -eo pipefail
           for caso in grupo_sin_decision tercer_perfil colores_ambiguos orden_incoherente; do
             echo "── negativo: $caso" | tee -a /tmp/salida-sql.log
-            cat "supabase/pruebas/negativos/$caso.sql" \
-                supabase/migrations/0002b_backfill_pertenencia.sql > /tmp/caso.sql
+            cat "supabase/pruebas/negativos/$caso.sql" > /tmp/caso.sql
+            echo "\\ir $PWD/supabase/lotes/pertenencia.sql" >> /tmp/caso.sql
+
             if psql -v ON_ERROR_STOP=1 --single-transaction -f /tmp/caso.sql \
                  >> /tmp/salida-sql.log 2>&1; then
-              echo "FALLO: el backfill debería haber abortado con '$caso'" | tee -a /tmp/salida-sql.log
+              echo "FALLO: el lote debería haber abortado con '$caso'" | tee -a /tmp/salida-sql.log
               exit 1
             fi
-            echo "   ok · abortó, como debe" | tee -a /tmp/salida-sql.log
+            echo "   ok · abortó el lote entero" | tee -a /tmp/salida-sql.log
+
+            # Y el rollback tiene que haber deshecho TAMBIÉN 0002.
+            psql -v ON_ERROR_STOP=1 -f supabase/pruebas/92_rollback_atomico.sql \
+                 2>&1 | tee -a /tmp/salida-sql.log
           done
 
-      - name: Aplicar el backfill REAL con las decisiones de Dani
+      - name: Aplicar el LOTE ATÓMICO real, como en producción
+        # Exactamente el mismo comando que ejecuta supabase/aplicar-migraciones.sh
         run: |
           set -eo pipefail
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002b_backfill_pertenencia.sql 2>&1 | tee -a /tmp/salida-sql.log
+          psql -v ON_ERROR_STOP=1 --single-transaction \
+               -f supabase/lotes/pertenencia.sql 2>&1 | tee -a /tmp/salida-sql.log
 
-      - name: El backfill es idempotente
-        # Repetirlo no debe insertar nada nuevo ni cambiar ningún rol.
+      - name: El lote es idempotente
         run: |
           set -eo pipefail
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002b_backfill_pertenencia.sql 2>&1 | tee -a /tmp/salida-sql.log
+          psql -v ON_ERROR_STOP=1 --single-transaction \
+               -f supabase/lotes/pertenencia.sql 2>&1 | tee -a /tmp/salida-sql.log
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/93_backfill_resultado.sql 2>&1 | tee -a /tmp/salida-sql.log
 
       - name: Aplicar el resto de migraciones
@@ -276,7 +298,8 @@ jobs:
           set -eo pipefail
           for f in 0003_restricciones_indices 0004_rls 0005_realtime; do
             echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
-            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 --single-transaction \
+                 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
           done
 
       - name: Comprobar que la aplicación de viajes sigue intacta

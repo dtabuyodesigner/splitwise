@@ -1,0 +1,34 @@
+-- ============================================================
+-- LOTE ATÓMICO · pertenencia a grupos
+--
+--   0002_group_members.sql        crea la tabla, funciones y triggers
+--   0002b_backfill_pertenencia.sql rellena la pertenencia histórica
+--
+-- Los dos van SIEMPRE juntos, en una única transacción. Nunca por separado.
+--
+-- POR QUÉ
+--
+-- Entre uno y otro, `group_members` existe pero está VACÍA. Y el frontend
+-- distingue la ausencia de la tabla (comportamiento anterior, se ven los
+-- grupos) de la tabla vacía (la pertenencia manda, y no pertenecer a nada es
+-- no ver nada). O sea: si 0002b abortara con 0002 ya confirmada, los tres
+-- grupos históricos desaparecerían de la aplicación hasta arreglarlo a mano.
+--
+-- CÓMO EJECUTARLO
+--
+-- Este archivo NO se aplica solo. Se aplica con `--single-transaction`, que
+-- es lo que hace que un fallo en 0002b deshaga también 0002:
+--
+--     psql "$URL" -v ON_ERROR_STOP=1 --single-transaction \
+--          -f supabase/lotes/pertenencia.sql
+--
+-- O, mejor, con el script que ya lleva esos parámetros puestos:
+--
+--     supabase/aplicar-migraciones.sh "$URL"
+--
+-- `\ir` incluye los archivos de forma relativa a ESTE archivo, así que
+-- funciona desde cualquier directorio de trabajo.
+-- ============================================================
+
+\ir ../migrations/0002_group_members.sql
+\ir ../migrations/0002b_backfill_pertenencia.sql

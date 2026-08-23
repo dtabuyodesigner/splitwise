@@ -201,11 +201,16 @@ begin
     from pg_trigger t
     join pg_class rel on rel.oid = t.tgrelid
     join pg_namespace n on n.oid = rel.relnamespace
-    where n.nspname = 'auth' and rel.relname = 'users' and not t.tgisinternal;
+    join pg_proc p on p.oid = t.tgfoid
+    join pg_namespace fn on fn.oid = p.pronamespace
+    where n.nspname = 'auth' and rel.relname = 'users' and not t.tgisinternal
+      and fn.nspname = 'public' and p.proname = 'handle_new_user' and p.pronargs = 0;
 
+    -- El invariante es "un mecanismo de perfiles", no "un trigger". Un trigger
+    -- ajeno sobre auth.users es asunto de otra aplicación y no cuenta aquí.
     if cuantos <> 1 then
         raise exception
-            'Debe haber exactamente un trigger de alta sobre auth.users y hay %: %',
+            'Debe haber exactamente un trigger que ejecute public.handle_new_user() y hay %: %',
             cuantos, coalesce(cuales, '(ninguno)');
     end if;
 end $$;

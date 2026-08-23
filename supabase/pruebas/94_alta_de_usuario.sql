@@ -17,12 +17,17 @@ declare
     cuantos integer;
     cuales  text;
 begin
+    -- Se cuentan los triggers que ejecutan public.handle_new_user(), no los
+    -- triggers de auth.users en general: uno ajeno sería de otra aplicación.
     select count(*), string_agg(t.tgname, ', ')
       into cuantos, cuales
     from pg_trigger t
     join pg_class rel on rel.oid = t.tgrelid
     join pg_namespace n on n.oid = rel.relnamespace
-    where n.nspname = 'auth' and rel.relname = 'users' and not t.tgisinternal;
+    join pg_proc p on p.oid = t.tgfoid
+    join pg_namespace fn on fn.oid = p.pronamespace
+    where n.nspname = 'auth' and rel.relname = 'users' and not t.tgisinternal
+      and fn.nspname = 'public' and p.proname = 'handle_new_user' and p.pronargs = 0;
 
     if cuantos <> 1 then
         raise exception

@@ -145,28 +145,32 @@ Incluso en ese caso:
   los grupos futuros: a partir de aquí, crear un grupo mete únicamente a su
   creador y todo lo demás va por invitación explícita.
 
-#### 3.4 Aplicar 0002 y 0002b **en la misma transacción**
-
-Entre uno y otro, `group_members` existe pero está vacía. Como la pertenencia
-es la fuente de verdad, en ese instante **nadie vería ningún grupo**. Por eso
-van juntos o no van:
+#### 3.4 Aplicar el lote atómico
 
 ```bash
-psql "$URL" -v ON_ERROR_STOP=1 --single-transaction \
-  -f supabase/migrations/0002_group_members.sql \
-  -f supabase/migrations/0002b_backfill_pertenencia.sql
+supabase/aplicar-migraciones.sh "$URL_PRODUCCION"
 ```
 
-`0002b` termina con cuatro comprobaciones que **deshacen la transacción entera**
-si algo no cuadra:
+El script aplica `0002` y `0002b` **en una sola transacción**, sin que haya que
+acordarse de combinarlos.
+
+**Por qué van juntos.** Entre uno y otro, `group_members` existe pero está
+vacía. Como la pertenencia es la fuente de verdad, en ese instante **nadie
+vería ningún grupo**. Si `0002b` abortara con `0002` ya confirmada, los tres
+grupos históricos desaparecerían de la aplicación hasta arreglarlo a mano.
+
+`0002b` termina con las comprobaciones que **deshacen la transacción entera**
+—incluida la creación de la tabla— si algo no cuadra:
 
 1. ningún grupo se queda sin miembros;
 2. ningún grupo se queda sin propietario;
 3. todo `paid_by` pertenece a su grupo;
-4. todo `from_user` y `to_user` pertenece a su grupo.
+4. todo `from_user` y `to_user` pertenece a su grupo;
+5. el resultado deja exactamente los dos perfiles como miembros y propietarios
+   de cada grupo.
 
-**No se puede aplicar `0004` (RLS) hasta que las cuatro pasen.** Si un pagador
-no es miembro de su grupo, al activar RLS esa persona perdería el acceso a sus
+**No se puede aplicar `0004` (RLS) hasta que todas pasen.** Si un pagador no es
+miembro de su grupo, al activar RLS esa persona perdería el acceso a sus
 propios gastos.
 
 ### Fase 4 · Limpieza de datos previa a las restricciones

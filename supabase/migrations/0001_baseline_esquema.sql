@@ -105,13 +105,22 @@ create table if not exists public.settlements (
 -- ------------------------------------------------------------
 do $crear_funcion$
 begin
-    if exists (
-        select 1 from pg_proc p
-        join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public' and p.proname = 'handle_new_user'
-    ) then
+    -- Se comprueba por esquema, nombre Y firma: `public.handle_new_user()` sin
+    -- argumentos y devolviendo `trigger`. Buscar solo por `proname` daría un
+    -- falso positivo con cualquier función homónima de otra firma o de otro
+    -- esquema, y entonces no se crearía la que hace falta.
+    if to_regprocedure('public.handle_new_user()') is not null
+       and exists (
+           select 1 from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public'
+             and p.proname = 'handle_new_user'
+             and p.pronargs = 0
+             and p.prorettype = 'pg_catalog.trigger'::regtype
+       )
+    then
         raise notice
-            'public.handle_new_user() ya existe: se conserva tal cual, no se sustituye.';
+            'public.handle_new_user() ya existe con la firma esperada: se conserva, no se sustituye.';
         return;
     end if;
 
@@ -153,18 +162,49 @@ $crear_funcion$;
 -- alta compitiendo pueden duplicar filas o pisarse display_name y color.
 do $crear_trigger$
 declare
-    ya_existe text;
+    el_de_perfiles text;
+    ocupa_el_nombre text;
 begin
-    select string_agg(t.tgname, ', ') into ya_existe
+    -- Lo que importa no es que `auth.users` tenga ALGÚN trigger, sino que
+    -- tenga uno que cree perfiles. Un trigger ajeno —de auditoría, de
+    -- analítica, de lo que sea— no debe impedir instalar el mecanismo de
+    -- perfiles: si lo hiciera, los usuarios nuevos no aparecerían nunca en
+    -- la aplicación.
+    select string_agg(t.tgname, ', ') into el_de_perfiles
+    from pg_trigger t
+    join pg_class rel on rel.oid = t.tgrelid
+    join pg_namespace n on n.oid = rel.relnamespace
+    join pg_proc p on p.oid = t.tgfoid
+    join pg_namespace fn on fn.oid = p.pronamespace
+    where n.nspname = 'auth' and rel.relname = 'users'
+      and not t.tgisinternal
+      and fn.nspname = 'public'
+      and p.proname = 'handle_new_user'
+      and p.pronargs = 0;
+
+    if el_de_perfiles is not null then
+        raise notice
+            'auth.users ya tiene el trigger de alta de perfiles "%": no se crea otro.',
+            el_de_perfiles;
+        return;
+    end if;
+
+    -- No hay ninguno que cree perfiles. ¿Está el nombre ocupado por otra cosa?
+    -- Si lo está, NO se pisa: podría ser un trigger de otra aplicación.
+    select string_agg(t.tgname, ', ') into ocupa_el_nombre
     from pg_trigger t
     join pg_class rel on rel.oid = t.tgrelid
     join pg_namespace n on n.oid = rel.relnamespace
     where n.nspname = 'auth' and rel.relname = 'users'
-      and not t.tgisinternal;
+      and not t.tgisinternal
+      and t.tgname = 'on_auth_user_created';
 
-    if ya_existe is not null then
+    if ocupa_el_nombre is not null then
         raise notice
-            'auth.users ya tiene el trigger de alta "%": no se crea otro.', ya_existe;
+            'Existe un trigger llamado on_auth_user_created que NO ejecuta '
+            'public.handle_new_user(). No se toca. Revísalo con '
+            'supabase/pruebas/inspeccion-trigger-alta.sql: sin un mecanismo de '
+            'alta, los usuarios nuevos no aparecerán en la aplicación.';
         return;
     end if;
 

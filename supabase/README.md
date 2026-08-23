@@ -233,27 +233,69 @@ crear grupo, apuntar gasto, editar, borrar, saldar, importar CSV.
 
 ## 7. Aplicar en producción
 
-Solo cuando todo lo anterior haya pasado:
+### Un solo comando
 
 ```bash
-# 1. Copia de seguridad completa y verificada.
-supabase db dump --db-url "$URL_PRODUCCION" -f respaldo-$(date +%F-%H%M).sql
-ls -la respaldo-*.sql       # que no esté vacío
-
-# 2. Una migración cada vez, comprobando entre una y otra.
-psql "$URL_PRODUCCION" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_baseline_esquema.sql
-psql "$URL_PRODUCCION" -v ON_ERROR_STOP=1 -f supabase/migrations/0002_group_members.sql
-#    → descomentar y ejecutar el backfill; comprobar que ningún grupo
-#      se queda con 0 miembros ANTES de seguir.
-psql "$URL_PRODUCCION" -v ON_ERROR_STOP=1 -f supabase/migrations/0003_restricciones_indices.sql
-psql "$URL_PRODUCCION" -v ON_ERROR_STOP=1 -f supabase/migrations/0004_rls.sql
-psql "$URL_PRODUCCION" -v ON_ERROR_STOP=1 -f supabase/migrations/0005_realtime.sql
+supabase/aplicar-migraciones.sh "$URL_PRODUCCION"
 ```
 
-Hazlo en un momento en el que nadie esté usando la app, y ten la app abierta
-en otra pestaña para comprobar después de cada paso.
+Eso es todo. El script pide confirmación de que hay copia de seguridad, y
+aplica los pasos en el orden correcto y con los límites transaccionales
+correctos. **No hay que combinar archivos a mano.**
 
----
+Para ver qué haría sin ejecutarlo:
+
+```bash
+supabase/aplicar-migraciones.sh "$URL_PRODUCCION" --dry-run
+```
+
+### Qué hace, y por qué así
+
+| Paso | Cómo se aplica |
+|---|---|
+| `0001_baseline_esquema.sql` | `--single-transaction` |
+| **`lotes/pertenencia.sql`** | **`--single-transaction` · es `0002` + `0002b` JUNTOS** |
+| `0003_restricciones_indices.sql` | `--single-transaction` |
+| `0004_rls.sql` | `--single-transaction` |
+| `0005_realtime.sql` | `--single-transaction` |
+
+**Lo del lote no es un detalle de estilo.** Entre `0002` y `0002b`,
+`group_members` existe pero está vacía, y el frontend distingue la ausencia de
+la tabla (comportamiento anterior: se ven los grupos) de la tabla vacía (la
+pertenencia manda, y no pertenecer a nada es no ver nada). Si `0002b` abortara
+con `0002` ya confirmada, **los tres grupos históricos desaparecerían de la
+aplicación** hasta arreglarlo a mano.
+
+Con `--single-transaction`, un fallo en el backfill deshace también la creación
+de la tabla, y la base se queda exactamente como estaba. Está probado en CI:
+cinco escenarios divergentes ejecutan el mismo lote, y después se comprueba que
+`group_members` **no existe** y que los datos siguen intactos
+(`supabase/pruebas/92_rollback_atomico.sql`).
+
+Si prefieres hacerlo a mano, el comando equivalente del paso del lote es:
+
+```bash
+psql "$URL_PRODUCCION" -v ON_ERROR_STOP=1 --single-transaction \
+     -f supabase/lotes/pertenencia.sql
+```
+
+Nunca:
+
+```bash
+# MAL: dos transacciones. Si la segunda falla, la primera ya está confirmada.
+psql "$URL" -f supabase/migrations/0002_group_members.sql
+psql "$URL" -f supabase/migrations/0002b_backfill_pertenencia.sql
+```
+
+### Antes de lanzarlo
+
+```bash
+supabase db dump --db-url "$URL_PRODUCCION" -f respaldo-$(date +%F-%H%M).sql
+ls -la respaldo-*.sql       # que no esté vacío
+```
+
+Hazlo en un momento en el que nadie esté usando la app, y ten la app abierta en
+otra pestaña para comprobar después de cada paso.
 
 ## 8. Marcha atrás
 
