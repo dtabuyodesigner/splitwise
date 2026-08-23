@@ -200,12 +200,21 @@ begin
       and t.tgname = 'on_auth_user_created';
 
     if ocupa_el_nombre is not null then
-        raise notice
-            'Existe un trigger llamado on_auth_user_created que NO ejecuta '
-            'public.handle_new_user(). No se toca. Revísalo con '
-            'supabase/pruebas/inspeccion-trigger-alta.sql: sin un mecanismo de '
-            'alta, los usuarios nuevos no aparecerán en la aplicación.';
-        return;
+        -- EXCEPTION, no NOTICE. Un `return` aquí solo abandonaría este bloque
+        -- DO: la migración seguiría y el despliegue terminaría con apariencia
+        -- de correcto, pero SIN ningún mecanismo que cree perfiles. Los
+        -- usuarios nuevos se autenticarían y no aparecerían nunca en la
+        -- aplicación, y nadie se enteraría hasta que alguien se registrara.
+        --
+        -- El trigger ajeno NO se toca: podría ser de otra aplicación de esta
+        -- misma base. Decidir qué hacer con él es cosa de una persona.
+        raise exception
+            'Existe un trigger llamado on_auth_user_created que NO ejecuta public.handle_new_user()'
+            using hint = 'No se ha tocado: podría ser de otra aplicación. Revísalo con '
+                         'supabase/pruebas/inspeccion-trigger-alta.sql y decide si '
+                         'renombrarlo o sustituirlo. Sin un mecanismo de alta, los '
+                         'usuarios nuevos no aparecerán nunca en la aplicación.',
+                  errcode = 'object_not_in_prerequisite_state';
     end if;
 
     create trigger on_auth_user_created

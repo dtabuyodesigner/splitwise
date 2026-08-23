@@ -91,6 +91,35 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql 2>&1 | tee -a /tmp/salida-sql.log
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/91_trigger_ajeno.sql 2>&1 | tee -a /tmp/salida-sql.log
 
+      - name: Un trigger que ocupa el nombre esperado ABORTA la migración
+        # Prueba negativa. Si 0001 solo avisara, el despliegue terminaría con
+        # apariencia de correcto y sin ningún mecanismo que cree perfiles.
+        # Todo dentro de una transacción, así que el impostor no queda.
+        run: |
+          set -eo pipefail
+          {
+            echo "begin;"
+            echo "\\ir $PWD/supabase/pruebas/negativos/nombre_ocupado.sql"
+            echo "\\ir $PWD/supabase/migrations/0001_baseline_esquema.sql"
+          } > /tmp/nombre_ocupado.sql
+
+          if psql -v ON_ERROR_STOP=1 -f /tmp/nombre_ocupado.sql \
+               >> /tmp/salida-sql.log 2>&1; then
+            echo "FALLO: 0001 debería abortar si el nombre está ocupado" | tee -a /tmp/salida-sql.log
+            exit 1
+          fi
+          echo "── nombre ocupado: ok · 0001 abortó, como debe" | tee -a /tmp/salida-sql.log
+
+          # Y comprobamos que no ha tocado el trigger ajeno, esta vez sin
+          # que la migración corra: se recrea el impostor y se mira el estado.
+          {
+            echo "begin;"
+            echo "\\ir $PWD/supabase/pruebas/negativos/nombre_ocupado.sql"
+            echo "\\ir $PWD/supabase/pruebas/90_nombre_ocupado.sql"
+            echo "rollback;"
+          } > /tmp/nombre_ocupado_check.sql
+          psql -v ON_ERROR_STOP=1 -f /tmp/nombre_ocupado_check.sql 2>&1 | tee -a /tmp/salida-sql.log
+
       - name: Aplicar las migraciones sobre una base vacía y desechable
         # Esto NO toca ninguna base real. Sirve para comprobar que el SQL del
         # repositorio compila y deja el esquema en el estado esperado.
