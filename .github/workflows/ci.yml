@@ -231,13 +231,35 @@ jobs:
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/96_frontera_viajes_antes.sql 2>&1 | tee -a /tmp/salida-sql.log
 
-      - name: Aplicar las migraciones sobre el estado histórico
+      - name: Aplicar 0001 y 0002 sobre el estado histórico
         run: |
           set -eo pipefail
-          # Orden EXPLÍCITO: el glob depende del locale y en algunos
-          # 0002b se ordena antes que 0002_group_members.
-          for f in 0001_baseline_esquema 0002_group_members 0002b_backfill_pertenencia \
-                   0003_restricciones_indices 0004_rls 0005_realtime; do
+          for f in 0001_baseline_esquema 0002_group_members; do
+            echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
+          done
+
+      - name: El backfill SIN rellenar debe negarse a dejar grupos sin miembros
+        # Prueba negativa: 0002b está sin rellenar a propósito, porque depende
+        # de que Dani confirme la pertenencia. Tiene que FALLAR aquí. Si algún
+        # día pasara, significaría que la guarda ha dejado de proteger.
+        run: |
+          set -eo pipefail
+          if psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002b_backfill_pertenencia.sql \
+               >> /tmp/salida-sql.log 2>&1; then
+            echo "FALLO: 0002b sin rellenar debería haberse negado" | tee -a /tmp/salida-sql.log
+            exit 1
+          fi
+          echo "OK: 0002b sin rellenar se ha negado, como debe" | tee -a /tmp/salida-sql.log
+
+      - name: Aplicar un backfill de PRUEBA y el resto de migraciones
+        # El backfill real sigue sin rellenar. Este es el del fixture, y
+        # reproduce la propuesta para grupos históricos compartidos: las dos
+        # personas dentro y las dos como propietarias.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/03_backfill_de_prueba.sql 2>&1 | tee -a /tmp/salida-sql.log
+          for f in 0003_restricciones_indices 0004_rls 0005_realtime; do
             echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
             psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
           done
