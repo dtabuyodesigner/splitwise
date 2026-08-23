@@ -129,23 +129,45 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Dejar el log en el PR si algo ha fallado
-        # Los logs de Actions no se pueden leer por API sin permisos extra, y
-        # un fallo de SQL sin su mensaje no es diagnosticable. Se publica como
-        # comentario para que quede a la vista de quien revisa.
-        if: failure() && github.event_name == 'pull_request'
+      - name: Dejar constancia del resultado en el PR
+        # Los logs de Actions no se pueden leer por API sin permisos extra, así
+        # que el resultado de las pruebas de seguridad se publica aquí: en
+        # verde, la lista de aserciones ejecutadas; en rojo, el error de
+        # PostgreSQL. Sin esto, un fallo de SQL no es diagnosticable y un
+        # acierto no es demostrable.
+        if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ESTADO: ${{ job.status }}
         run: |
-          {
-            echo "### ❌ El trabajo \`Las migraciones compilan\` ha fallado"
-            echo
-            echo "Commit: \`${{ github.sha }}\`"
-            echo
-            echo "Últimas 150 líneas de la salida de PostgreSQL:"
-            echo
-            echo '```'
-            tail -n 150 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
-            echo '```'
-          } > /tmp/comentario.md
+          COMMIT="${{ github.sha }}"
+          if [ "$ESTADO" = "success" ]; then
+            {
+              echo "### Esquema y seguridad · verde · \`${COMMIT:0:7}\`"
+              echo
+              echo "Las 5 migraciones aplican sobre PostgreSQL 15 vacío, el esquema"
+              echo "resultante pasa las comprobaciones, las pruebas DML de seguridad"
+              echo "pasan y las migraciones son idempotentes al reaplicarlas."
+              echo
+              grep -oE "[0-9]+ aserciones DML superadas" /tmp/salida-sql.log | tail -1 || true
+              echo
+              echo "<details><summary>Aserciones ejecutadas</summary>"
+              echo
+              echo '```'
+              grep -oE "\[[A-Za-z0-9]+\] ok . .*" /tmp/salida-sql.log || echo "(sin detalle)"
+              echo '```'
+              echo
+              echo "</details>"
+            } > /tmp/comentario.md
+          else
+            {
+              echo "### El trabajo de esquema ha fallado · \`${COMMIT:0:7}\`"
+              echo
+              echo "Últimas 150 líneas de la salida de PostgreSQL:"
+              echo
+              echo '```'
+              tail -n 150 /tmp/salida-sql.log 2>/dev/null || echo "(sin salida)"
+              echo '```'
+            } > /tmp/comentario.md
+          fi
           gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario.md

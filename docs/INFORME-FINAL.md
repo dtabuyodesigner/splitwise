@@ -4,10 +4,8 @@
 |---|---|
 | Rama de trabajo | `estabilizacion/fase-1` |
 | SHA base (HEAD de `main`) | `cbc1e1336065f4184aff2e61c0df06ca22e2d25b` |
-| Último commit de código | `bb3b8b31e339037923686804e4da3bde8909c1cc` |
-| SHA final de la rama | el de este commit de documentación, encima del anterior: `git rev-parse estabilizacion/fase-1` |
-| Commits | 8 |
-| Archivos tocados | 55 (3 modificados, 52 nuevos) |
+| HEAD de la primera ronda (revisado por GPT) | `4cd991e9b41f2c752b93d6bbe4cc95823dd897d6` — 9 commits, 54 archivos |
+| HEAD actual | `git rev-parse estabilizacion/fase-1` (ver §8) |
 | Pruebas | **128, todas verdes** |
 
 ---
@@ -112,13 +110,12 @@ Coherencia correcta · versión v16 · 14 módulos · 4 iconos
 | Escapado de HTML | Un `color` con `laurel" onmouseover="…` produce **un solo atributo** `data-color`; no se crea ningún `onmouseover` |
 | Los módulos en el navegador | `balances`, `errores`, `csv` y `html` se importan y funcionan igual que en Node |
 
-### 2.3 Lo que NO se ha podido ejecutar
+### 2.3 Lo que NO se ha podido ejecutar en la máquina de trabajo
 
-- **Las migraciones SQL no se han ejecutado contra ningún PostgreSQL.** En la
-  máquina de trabajo no había ni PostgreSQL ni Docker. Se ha comprobado el
-  equilibrio de comillas y bloques `$$`, y se ha añadido un trabajo de CI que
-  las aplica de verdad sobre una base desechable, pero **ese trabajo no se ha
-  llegado a ejecutar**. Su primera ejecución será el primer push a GitHub.
+- **Las migraciones SQL no se pueden ejecutar en local**: no hay PostgreSQL,
+  ni Docker, ni permisos de superusuario. El único sitio donde se ejecutan es
+  el trabajo `esquema` de CI, sobre un PostgreSQL 15 vacío y desechable.
+  **Ese trabajo ya se ha ejecutado**: su estado y su historia están en §8.
 - **El recorrido completo con sesión iniciada** (crear grupo, apuntar,
   editar, saldar) no se ha probado en navegador: exigiría credenciales
   reales contra el Supabase de producción.
@@ -192,7 +189,7 @@ esta fase los resuelve**, porque todos dependen de datos del servidor:
 
 | Qué | Por qué se acepta |
 |---|---|
-| Las migraciones no se han ejecutado nunca contra un PostgreSQL | No había ninguno disponible. CI las ejecuta en el primer push; hay que mirar ese resultado antes de tocar producción. |
+| Las migraciones no se han ejecutado nunca contra una base con datos reales | En la máquina de trabajo no hay PostgreSQL. CI las aplica sobre una base vacía; eso demuestra que compilan, no que la migración de datos existentes vaya a salir bien. |
 | El trigger sobre `auth.users` puede fallar por propiedad de la tabla | Es el patrón que documenta Supabase, pero depende de cómo esté provisionado el proyecto. CI no puede detectarlo. |
 | La cola heredada se adopta bajo la cuenta que entra primero | Es lo que la versión anterior habría hecho con esa misma cola. Ocurre una sola vez. La alternativa perdería trabajo real. |
 | Reimportar un CSV importado antes de la v16 lo duplicará | Al cambiar `huella()`. El botón «Borrar lo importado» sigue funcionando. |
@@ -270,3 +267,88 @@ Todo lo demás está igual, empezando por el aspecto:
 - Lo que dejó pendiente una cuenta ya no aparece al entrar con otra.
 - «Solo para mí» en el dictado ahora se entiende.
 - Los iconos de la app instalada son PNG reales, con variante maskable.
+
+---
+
+## 8. Segunda ronda: el CI de SQL, en marcha
+
+La primera ronda se publicó como PR #1 en `4cd991e`, con el trabajo de esquema
+sin haberse ejecutado nunca. Al ejecutarse, salió rojo. Esto es lo que pasó.
+
+### 8.1 Primer fallo: el entorno de pruebas, no las políticas
+
+```
+supabase/pruebas/98_seguridad_dml.sql:67
+ERROR: permission denied for schema auth
+QUERY: auth.uid() <> '11111111-1111-1111-1111-111111111111'
+```
+
+El stub de CI creaba el esquema `auth` y la función `auth.uid()`, pero solo
+concedía `USAGE` sobre `public`. Sin `USAGE` sobre `auth`, el rol
+`authenticated` no puede invocar la función, así que **el test se detenía en su
+primera aserción y no llegaba a comprobar ni una sola política**. El fallo era
+del entorno de pruebas.
+
+Corregido concediendo exactamente dos permisos —`USAGE` sobre el esquema `auth`
+y `EXECUTE` sobre `auth.uid()`—, ambos revocados antes de `PUBLIC` para que
+queden acotados. `auth.users` sigue siendo inaccesible para `anon` y
+`authenticated`, y ahora hay una aserción (`S02`) que lo comprueba: poder
+llamar a `auth.uid()` no debe implicar poder leer la tabla de usuarios.
+
+### 8.2 Segundo problema: recursión infinita en las políticas de propiedad
+
+Las políticas `miembros_cambiar_rol` y `miembros_expulsar` —introducidas en la
+primera ronda para arreglar los grupos imborrables— consultaban
+`public.group_members` dentro de su propia expresión RLS. Al expandir las
+políticas, PostgreSQL vuelve a entrar en la misma relación y aborta con
+`infinite recursion detected in policy for relation "group_members"`.
+
+Corregido con `public.es_owner()`, `SECURITY DEFINER` con `search_path` fijo,
+`EXECUTE` revocado de `PUBLIC` y concedido solo a `authenticated`: las mismas
+garantías que ya tenía `es_miembro()`. Devuelve un booleano, no filas.
+`groups_borrar` también pasa a usarla, porque consultaba `group_members` a
+través de RLS, que es el patrón frágil que causó el bypass de autorización.
+
+### 8.3 Tercer problema: una guarda mía con falso positivo
+
+La comprobación que añadí para detectar políticas autorreferentes usaba
+`LIKE '%group_members%'` sobre `pg_get_expr`. Eso también casa con la
+referencia de **columna** `group_members.group_id` que `miembros_invitar` usa
+dentro de una subconsulta a `public.groups`, que es legítima. La guarda daba
+falso positivo y hacía fallar el CI por sí sola. Ahora exige un `FROM` sobre la
+propia tabla, que es lo único que recursa.
+
+### 8.4 El invariante que RLS no puede expresar
+
+«Un grupo conserva al menos un propietario» depende de las **demás** filas del
+grupo, y RLS decide fila a fila. Va en un trigger,
+`antes_de_perder_propietario`, que es transaccional y no se puede saltar desde
+el cliente. Se salta a sí mismo cuando el grupo ya no existe, para no bloquear
+el `CASCADE` de borrar un grupo entero.
+
+Sin esta regla, el último propietario podía degradarse o marcharse y dejar el
+grupo sin nadie que pudiera administrarlo ni borrarlo: exactamente el estado
+del que la migración 0002 intenta salir.
+
+### 8.5 Y por qué ahora el log del SQL se publica en el PR
+
+Los logs de Actions no se pueden leer por API sin permisos extra, y un fallo de
+SQL sin su mensaje no es diagnosticable: las dos primeras iteraciones se
+hicieron a ciegas. Ahora cada paso vuelca la salida de `psql` a un log que se
+publica siempre en el resumen del trabajo y, si algo falla en un PR, como
+comentario del propio PR. Usa el `GITHUB_TOKEN` que emite Actions; no hace
+falta ningún secreto propio.
+
+### 8.6 Estado de la validación de RLS
+
+> **RLS NO está validada** mientras el trabajo `esquema` no termine en verde.
+>
+> Que las migraciones **apliquen** sobre una base vacía no demuestra que las
+> políticas **se comporten** como dicen: eso es justo lo que comprueba
+> `98_seguridad_dml.sql`, con 32 aserciones ejecutando consultas reales. El
+> estado exacto de cada trabajo y cada paso está en el PR #1 y en el informe
+> de la sesión.
+
+Y aunque termine en verde, seguirá sin estar validada **contra datos reales**:
+la base de CI está vacía. Eso solo puede comprobarse con una copia de
+producción en un entorno de staging, siguiendo `supabase/README.md`.
