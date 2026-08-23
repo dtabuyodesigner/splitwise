@@ -357,7 +357,7 @@ jobs:
               echo "<details><summary>Qué ha verificado</summary>"
               echo
               echo '```'
-              grep -E "Punto de partida|Política histórica retirada|política\(s\) retiradas|viajes intactas|negativo:|ok · abortó|Backfill|\[BF\]|\[H0|\[U0|Frontera de viajes" \
+              grep -E "Punto de partida|Política histórica retirada|política\(s\) retiradas|viajes intactas|negativo:|ok · abortó|Backfill|\[BF\]|\[RB\]|\[H0|\[U0|\[TA\]|Frontera de viajes|rollback completo" \
                    /tmp/salida-sql.log || echo "(sin detalle)"
               echo '```'
               echo
