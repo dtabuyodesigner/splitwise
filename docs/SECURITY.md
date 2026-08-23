@@ -86,6 +86,30 @@ Decisiones deliberadas:
   todos los usuarios de la instancia; con la política nueva solo se ven los
   perfiles con los que se comparte algún grupo.
 
+### 4.0 Dos trampas de RLS que ya han mordido en este proyecto
+
+Las dos aparecieron escribiendo estas políticas. Conviene tenerlas presentes
+antes de tocar `0004_rls.sql`:
+
+**1. Una subconsulta a una tabla protegida no dice «existe», dice «existe y yo
+puedo verlo».** Una versión de `miembros_invitar` tenía una rama
+`not exists (select 1 from group_members where group_id = ...)`. Para quien no
+es miembro, esa subconsulta devuelve siempre vacío —porque RLS se la filtra—,
+así que `not exists` era cierto para **cualquier grupo ajeno**: bypass de
+autorización completo. **Nunca uses `not exists` sobre una tabla protegida para
+decidir un permiso.**
+
+**2. Una política no puede consultar su propia tabla.** Al expandir RLS,
+PostgreSQL vuelve a entrar en la misma relación y aborta con
+`infinite recursion detected in policy for relation ...`. Por eso las
+comprobaciones de pertenencia y propiedad van por `es_miembro()` y `es_owner()`,
+funciones `SECURITY DEFINER` que saltan RLS y devuelven un booleano, sin filtrar
+ninguna fila.
+
+Ambas están cubiertas: `99_comprobaciones.sql` falla si alguien reintroduce una
+política de `group_members` que se consulte a sí misma, y `98_seguridad_dml.sql`
+ejecuta el ataque de autoinvitación como aserción `D01`.
+
 ### 4.1 Cada consulta del frontend, contra la política que la autoriza
 
 Toda operación que el cliente puede lanzar, y qué política la cubre. Es la

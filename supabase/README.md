@@ -28,6 +28,41 @@ en CI, sobre una base vacía. **No los ejecutes contra una base real.**
 
 ---
 
+## 1.b Lo que CI comprueba, y lo que no
+
+El trabajo `esquema` del workflow de CI aplica las cinco migraciones sobre un
+**PostgreSQL 15 vacío y desechable** con un sustituto del esquema `auth`,
+comprueba el esquema resultante, ejecuta `98_seguridad_dml.sql` (32 aserciones
+suplantando usuarios reales) y reaplica las migraciones para comprobar que son
+idempotentes. El resultado se publica como comentario del PR.
+
+**Lo que eso demuestra:** que el SQL compila, que las políticas se crean, que
+un usuario ajeno no puede leer ni escribir en un grupo del que no es miembro, y
+que los invariantes del propietario se cumplen.
+
+**Lo que NO demuestra:**
+
+- Que la migración funcione **sobre los datos que ya existen**. La base de CI
+  está vacía. Un `client_id` duplicado, un gasto huérfano o un grupo sin
+  miembros solo aparecen con datos reales.
+- Que el trigger sobre `auth.users` se pueda crear en el proyecto real: en CI
+  esa tabla la crea el propio rol de pruebas, así que nunca falla por
+  propiedad.
+- Que las políticas actuales de producción sean compatibles: siguen sin
+  inspeccionarse.
+
+Por eso el CI en verde **no sustituye** al procedimiento de validación en local
+con una copia de los datos que describe la sección 3.
+
+> **Nota sobre el versionado.** Las migraciones `0002` y `0004` se han editado
+> en el sitio durante esta fase, en lugar de añadir migraciones correctivas.
+> Es deliberado y seguro: **ninguna se ha aplicado a ninguna base**, así que no
+> hay ningún entorno donde la versión antigua ya haya corrido. A partir del
+> momento en que se aplique alguna en un entorno real, este conjunto pasa a ser
+> de solo lectura y cualquier corrección tendrá que ir en una migración nueva.
+
+---
+
 ## 2. Orden obligatorio
 
 ```
