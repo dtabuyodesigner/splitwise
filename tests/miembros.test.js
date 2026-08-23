@@ -4,7 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { otroDelGrupo, miembrosDeGrupo, gruposVisibles } from '../js/miembros.js';
+import {
+    otroDelGrupo, miembrosDeGrupo, gruposVisibles, tipoDeGrupo,
+    perfilesDelGrupo, esPropietario, modoDe, TIPO, MODO,
+} from '../js/miembros.js';
 import { escapar } from '../js/html.js';
 
 const A = { id: 'a', display_name: 'Dani' };
@@ -91,4 +94,83 @@ test('escapar() tolera null y undefined', () => {
     assert.equal(escapar(null), '');
     assert.equal(escapar(undefined), '');
     assert.equal(escapar(0), '0');
+});
+
+
+// ------------------------------------------------------------
+//  Regla de negocio: group_members es la fuente de verdad
+//  Un grupo puede tener 1, 2 o más miembros.
+// ------------------------------------------------------------
+const SOLO_MIO = [{ group_id: 'gsolo', user_id: 'a', role: 'owner' }];
+
+const TRES = [
+    { group_id: 'gtres', user_id: 'a', role: 'owner' },
+    { group_id: 'gtres', user_id: 'b', role: 'member' },
+    { group_id: 'gtres', user_id: 'c', role: 'member' },
+];
+
+test('la ausencia de la tabla y una tabla vacía NO son lo mismo', () => {
+    assert.equal(modoDe(null), MODO.HEREDADO, 'sin tabla: comportamiento anterior');
+    assert.equal(modoDe([]), MODO.PERTENENCIA, 'tabla vacía: la pertenencia manda');
+    assert.equal(modoDe(membresias), MODO.PERTENENCIA);
+});
+
+test('sin membresías no se ve ningún grupo', () => {
+    const grupos = [{ id: 'g1' }, { id: 'g2' }];
+    assert.deepEqual(gruposVisibles(grupos, { membresias: [], yoId: 'a' }), []);
+});
+
+test('un grupo individual es válido y se clasifica como SOLO', () => {
+    const t = tipoDeGrupo('gsolo', { membresias: SOLO_MIO, perfiles: [A], yoId: 'a' });
+    assert.equal(t, TIPO.SOLO);
+    assert.equal(otroDelGrupo('gsolo', { membresias: SOLO_MIO, perfiles: [A], yoId: 'a' }), null);
+});
+
+test('un grupo de dos se clasifica como PAR y conserva el cálculo actual', () => {
+    const t = tipoDeGrupo('g1', { membresias, perfiles: [A, B, C], yoId: 'a' });
+    assert.equal(t, TIPO.PAR);
+    assert.equal(otroDelGrupo('g1', { membresias, perfiles: [A, B, C], yoId: 'a' }).id, 'b');
+});
+
+test('un grupo de TRES se clasifica como MULTI y NO tiene "otra persona"', () => {
+    const ctx = { membresias: TRES, perfiles: [A, B, C], yoId: 'a' };
+    assert.equal(tipoDeGrupo('gtres', ctx), TIPO.MULTI);
+    assert.equal(otroDelGrupo('gtres', ctx), null,
+        'nunca se elige un tercero arbitrario: eso daba saldos incorrectos');
+});
+
+test('el saldo de un grupo MULTI no se calcula', async () => {
+    const { calcularSaldo } = await import('../js/balances.js');
+    const ctx = { membresias: TRES, perfiles: [A, B, C], yoId: 'a' };
+    const otro = otroDelGrupo('gtres', ctx);
+
+    const gastos = [{ group_id: 'gtres', amount: 90, paid_by: 'a', payer_share: 0.5 }];
+    assert.equal(calcularSaldo(gastos, [], { yoId: 'a', otroId: otro?.id }), null,
+        'sin par identificado, calcularSaldo devuelve null en vez de una cifra');
+});
+
+test('un grupo del que no eres miembro se clasifica como AJENO', () => {
+    const ctx = { membresias: TRES, perfiles: [A, B, C], yoId: 'z' };
+    assert.equal(tipoDeGrupo('gtres', ctx), TIPO.AJENO);
+});
+
+test('el modo heredado también avisa cuando hay más de dos perfiles', () => {
+    // Antes de aplicar la migración no hay tabla de pertenencia. Con tres
+    // cuentas registradas, el saldo del monolito ya era incorrecto: ahora se
+    // clasifica MULTI y la interfaz avisa en lugar de enseñar una cifra.
+    assert.equal(tipoDeGrupo('g1', { membresias: null, perfiles: [A, B], yoId: 'a' }), TIPO.PAR);
+    assert.equal(tipoDeGrupo('g1', { membresias: null, perfiles: [A, B, C], yoId: 'a' }), TIPO.MULTI);
+    assert.equal(tipoDeGrupo('g1', { membresias: null, perfiles: [A], yoId: 'a' }), TIPO.SOLO);
+});
+
+test('perfilesDelGrupo devuelve a todos los miembros, con uno mismo primero', () => {
+    const gente = perfilesDelGrupo('gtres', { membresias: TRES, perfiles: [A, B, C], yoId: 'b' });
+    assert.equal(gente.length, 3);
+    assert.equal(gente[0].id, 'b');
+});
+
+test('esPropietario distingue owner de member', () => {
+    assert.equal(esPropietario('gtres', { membresias: TRES, yoId: 'a' }), true);
+    assert.equal(esPropietario('gtres', { membresias: TRES, yoId: 'b' }), false);
+    assert.equal(esPropietario('gtres', { membresias: null, yoId: 'a' }), false);
 });

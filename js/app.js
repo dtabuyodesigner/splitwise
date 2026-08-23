@@ -14,7 +14,10 @@ import { hoyISO, tituloDia } from './fechas.js';
 import { escapar } from './html.js';
 import { CLASE, traducirError, mensajeResultado } from './errores.js';
 import { calcularSaldo, delGrupo, totalesDelGrupo, sumar, porCategoria } from './balances.js';
-import { otroDelGrupo, gruposVisibles } from './miembros.js';
+import {
+    otroDelGrupo, gruposVisibles, tipoDeGrupo, perfilesDelGrupo, avisoDeTipo,
+    TIPO as TIPO_GRUPO, MODO, modoDe,
+} from './miembros.js';
 import {
     crearAlmacen, purgarOtrosUsuarios, migrarDesdeEsquemaAntiguo, CLAVE_CORREO,
 } from './almacen.js';
@@ -38,6 +41,8 @@ const estado = {
     perfiles: [],
     grupos: [],
     membresias: null,
+    tipoGrupo: 'ninguno',
+    miembros: [],
     grupoActivo: null,
     gastos: [],
     liquidaciones: [],
@@ -237,11 +242,54 @@ async function salir() {
 function repartirPerfiles() {
     const id = miId();
     estado.yo = id ? (estado.perfiles.find((p) => p.id === id) || null) : null;
-    estado.otro = otroDelGrupo(estado.grupoActivo, {
+
+    const ctx = {
         membresias: estado.membresias,
         perfiles: estado.perfiles,
         yoId: estado.yo?.id,
-    });
+    };
+
+    estado.tipoGrupo = tipoDeGrupo(estado.grupoActivo, ctx);
+    estado.miembros = perfilesDelGrupo(estado.grupoActivo, ctx);
+    // `otro` solo existe cuando el grupo es exactamente un par. En un grupo
+    // individual o de tres o más es null a propósito: elegir una "otra
+    // persona" arbitraria es lo que producía saldos incorrectos.
+    estado.otro = otroDelGrupo(estado.grupoActivo, ctx);
+}
+
+/**
+ * Comprueba que el grupo activo admite la acción y, si no, lo explica.
+ * @returns {boolean} true si se puede seguir.
+ */
+function grupoAdmite(accion) {
+    if (estado.tipoGrupo === TIPO_GRUPO.MULTI) {
+        recado(accion === 'saldar'
+            ? 'Saldar cuentas todavía no está disponible en grupos de más de dos personas'
+            : 'Este grupo tiene más de dos participantes; el reparto múltiple todavía no está disponible');
+        return false;
+    }
+    if (estado.tipoGrupo === TIPO_GRUPO.AJENO) {
+        recado('No perteneces a este grupo');
+        return false;
+    }
+    if (estado.tipoGrupo === TIPO_GRUPO.SOLO && accion !== 'gasto') {
+        recado(accion === 'saldar'
+            ? 'En un grupo individual no hay nada que saldar'
+            : 'Invita a alguien al grupo antes de importar gastos compartidos');
+        return false;
+    }
+    return true;
+}
+
+/** ¿Se puede calcular y enseñar un saldo en el grupo activo? */
+function hayReparto() {
+    return estado.tipoGrupo === TIPO_GRUPO.PAR;
+}
+
+/** Personas del grupo activo, para pintar chips, opciones y desgloses. */
+function genteDelGrupo() {
+    if (estado.miembros?.length) return estado.miembros;
+    return [estado.yo, estado.otro].filter(Boolean);
 }
 
 function perfil(id) {
@@ -416,24 +464,51 @@ function pintarSaldo() {
     const g = grupo(estado.grupoActivo);
 
     $('saldoRotulo').textContent = g ? 'Saldo · ' + g.name : 'Saldo';
-    cifra.textContent = formatoDinero(Math.abs(saldo || 0));
 
     const nombreOtro = estado.otro?.display_name;
+    const cuantos = estado.miembros?.length || 0;
 
     $('fielIzquierda').textContent = estado.yo?.display_name || '—';
-    $('fielDerecha').textContent = nombreOtro || 'Falta la 2ª cuenta';
+    $('fielDerecha').textContent = nombreOtro
+        || (estado.tipoGrupo === TIPO_GRUPO.MULTI ? cuantos + ' participantes' : '—');
 
     const enBlanco = (texto) => {
         frase.innerHTML = texto;
+        cifra.textContent = '';
         cifra.style.color = '';
         barra.style.width = '0';
     };
 
     if (!g) return enBlanco('Crea un grupo para empezar a apuntar gastos.');
     if (!estado.yo) return enBlanco('Tu perfil todavía no está creado en la base de datos.');
-    if (saldo === null) {
-        return enBlanco('Cuando la otra persona cree su cuenta, aquí aparecerá el reparto.');
+
+    // Grupo individual: es válido y funciona. No hay reparto que enseñar.
+    if (estado.tipoGrupo === TIPO_GRUPO.SOLO) {
+        return enBlanco(
+            'Grupo individual. Aquí solo apuntas lo tuyo, así que no hay nada que repartir. ' +
+            'Invita a alguien cuando quieras compartirlo.'
+        );
     }
+
+    // Tres o más: NO se calcula saldo. Enseñar uno contra "la otra persona"
+    // sería enseñar una cifra incorrecta.
+    if (estado.tipoGrupo === TIPO_GRUPO.MULTI) {
+        return enBlanco(
+            '<strong>Este grupo tiene más de dos participantes; el reparto múltiple ' +
+            'todavía no está disponible.</strong> Puedes seguir consultando los gastos ' +
+            'y los totales, pero el saldo no se calcula.'
+        );
+    }
+
+    if (estado.tipoGrupo === TIPO_GRUPO.AJENO) {
+        return enBlanco('No perteneces a este grupo.');
+    }
+
+    if (saldo === null) {
+        return enBlanco('Cuando la otra persona acepte la invitación, aquí aparecerá el reparto.');
+    }
+
+    cifra.textContent = formatoDinero(Math.abs(saldo));
 
     if (Math.abs(saldo) < 0.005) {
         frase.innerHTML = 'Estáis en paz. Nadie debe nada.';
@@ -476,7 +551,7 @@ function pintarTotales() {
     $('totalMioRotulo').textContent = 'Has pagado';
 
     const saldo = saldoActual();
-    if (estado.otro && saldo !== null) {
+    if (hayReparto() && saldo !== null) {
         $('totalSuyo').textContent = formatoDinero(Math.abs(saldo));
         $('totalSuyoRotulo').textContent =
             Math.abs(saldo) < 0.005 ? 'En paz' : saldo < 0 ? 'Debes' : 'Te deben';
@@ -504,7 +579,7 @@ function pintarFiltros() {
     });
     cajaChips.appendChild(chipTodos);
 
-    for (const p of [estado.yo, estado.otro].filter(Boolean)) {
+    for (const p of genteDelGrupo()) {
         const chip = document.createElement('button');
         chip.className = 'chip';
         chip.textContent = p.display_name;
@@ -778,7 +853,7 @@ function abrirHojaStats() {
 
     html += '<div class="stats-tarjeta" style="margin-top:14px">';
     html += '<span class="rotulo" style="display:block;margin-bottom:10px">Aportación de cada uno</span>';
-    for (const p of [estado.yo, estado.otro].filter(Boolean)) {
+    for (const p of genteDelGrupo()) {
         const puesto = adelantado[p.id] || 0;
         const pct = total > 0 ? Math.round((puesto / total) * 100) : 0;
         const color = p.color === 'buganvilla' ? 'var(--buganvilla)' : 'var(--laurel)';
@@ -816,7 +891,7 @@ function resumenTexto() {
     const { total, adelantado } = totalesDelGrupo(gastos, estado.perfiles);
     const lineas = ['Gastos · ' + g.name, ''];
 
-    for (const p of [estado.yo, estado.otro].filter(Boolean)) {
+    for (const p of genteDelGrupo()) {
         lineas.push(p.display_name + ' ha puesto ' + formatoDinero(adelantado[p.id] || 0));
     }
 
@@ -824,8 +899,12 @@ function resumenTexto() {
     lineas.push('');
 
     const saldo = saldoActual();
-    if (saldo === null) {
-        lineas.push('Falta la segunda cuenta para calcular el reparto.');
+    if (estado.tipoGrupo === TIPO_GRUPO.SOLO) {
+        lineas.push('Grupo individual: no hay reparto.');
+    } else if (estado.tipoGrupo === TIPO_GRUPO.MULTI) {
+        lineas.push('Más de dos participantes: el reparto múltiple todavía no está disponible.');
+    } else if (saldo === null) {
+        lineas.push('Falta que la otra persona acepte la invitación.');
     } else if (Math.abs(saldo) < 0.005) {
         lineas.push('Estamos en paz.');
     } else if (saldo > 0) {
@@ -930,10 +1009,7 @@ function abrirHojaImportar() {
         recado('Elige antes un grupo');
         return;
     }
-    if (!estado.otro) {
-        recado('Falta que la otra persona cree su cuenta');
-        return;
-    }
+    if (!grupoAdmite('importar')) return;
 
     analisisActual = null;
     mostrarAviso($('avisoImportar'), '');
@@ -1452,7 +1528,7 @@ function pintarOpcionesPagador() {
     const caja = $('opcionesPagador');
     caja.innerHTML = '';
 
-    for (const p of [estado.yo, estado.otro].filter(Boolean)) {
+    for (const p of genteDelGrupo()) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'opcion';
@@ -1473,7 +1549,21 @@ function pintarOpcionesReparto() {
     caja.innerHTML = '';
 
     const pagador = perfil(estado.formulario.pagador);
-    const receptor = perfil(otroId(estado.formulario.pagador));
+    const idReceptor = otroId(estado.formulario.pagador);
+
+    // Grupo individual: el gasto es entero de quien lo apunta. No se ofrece
+    // ningún reparto, porque no hay nadie con quien repartir.
+    if (!idReceptor) {
+        estado.formulario.reparto = 1;
+        const nota = document.createElement('p');
+        nota.className = 'dictado__pista';
+        nota.style.margin = '0';
+        nota.textContent = 'Grupo individual: el gasto se apunta entero a tu nombre.';
+        caja.appendChild(nota);
+        return;
+    }
+
+    const receptor = perfil(idReceptor);
 
     const opciones = [
         { valor: 0.5, texto: 'Mitad y mitad' },
@@ -1545,10 +1635,7 @@ function abrirHojaGasto(id) {
         abrirHojaGrupos();
         return;
     }
-    if (!estado.otro) {
-        recado('Falta que la otra persona cree su cuenta');
-        return;
-    }
+    if (!grupoAdmite('gasto')) return;
 
     mostrarAviso($('avisoGasto'), '');
     estado.editando = id || null;
@@ -1586,7 +1673,7 @@ function abrirHojaGasto(id) {
         $('entradaFecha').value = hoyISO();
         $('entradaGrupo').value = estado.grupoActivo;
         estado.formulario.pagador = estado.yo?.id;
-        estado.formulario.reparto = 0.5;
+        estado.formulario.reparto = hayReparto() ? 0.5 : 1;
         $('botonBorrarGasto').classList.add('oculto');
     }
 
@@ -1717,10 +1804,7 @@ function abrirHojaLiquidar() {
         recado('Crea primero un grupo');
         return;
     }
-    if (!estado.otro) {
-        recado('Falta que la otra persona cree su cuenta');
-        return;
-    }
+    if (!grupoAdmite('saldar')) return;
 
     estado.editandoLiquidacion = null;
     const saldo = saldoActual() || 0;

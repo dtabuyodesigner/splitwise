@@ -87,9 +87,10 @@ test('cargarTodo funciona aunque group_members todavía no exista', async () => 
     assert.equal(datos.grupos.length, 1);
 });
 
-test('una tabla group_members vacía se trata como "todavía sin migrar"', async () => {
-    // Ventana entre crear la tabla (0002) y ejecutar el backfill: si se
-    // tomara [] como membresías reales, desaparecerían todos los grupos.
+test('una tabla group_members vacía es un DATO, no una laguna', async () => {
+    // group_members es la fuente de verdad: no pertenecer a ningún grupo
+    // significa no ver ninguno. Solo la AUSENCIA de la tabla activa el
+    // comportamiento anterior a la migración.
     const sb = crearSupabaseFalso({
         profiles: [{ id: YO }, { id: OTRO }],
         groups: [{ id: 'g1', name: 'Casa' }],
@@ -97,8 +98,8 @@ test('una tabla group_members vacía se trata como "todavía sin migrar"', async
     });
 
     const datos = await cargarTodo(sb);
-    assert.equal(datos.membresias, null);
-    assert.equal(datos.grupos.length, 1);
+    assert.deepEqual(datos.membresias, [], 'array vacío, no null');
+    assert.notEqual(datos.membresias, null);
 });
 
 test('cargarTodo devuelve las membresías cuando la tabla existe', async () => {

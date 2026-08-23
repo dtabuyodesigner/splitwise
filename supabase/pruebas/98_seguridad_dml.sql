@@ -73,12 +73,27 @@ insert into public.groups (id, name, created_by) values
     ('aaaaaaaa-0000-0000-0000-000000000002', 'Propiedad',
      '11111111-1111-1111-1111-111111111111');
 
+-- "Individual": SOLO Ana. La regla de negocio admite grupos de una persona,
+-- y Bruno no debe verlo pese a compartir otros grupos con ella.
+insert into public.groups (id, name, created_by) values
+    ('aaaaaaaa-0000-0000-0000-000000000003', 'Individual',
+     '11111111-1111-1111-1111-111111111111');
+
+-- "Trio": Ana, Bruno y Carla. Tres participantes.
+insert into public.groups (id, name, created_by) values
+    ('aaaaaaaa-0000-0000-0000-000000000004', 'Trio',
+     '11111111-1111-1111-1111-111111111111');
+
 insert into public.group_members (group_id, user_id, role) values
     ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'owner'),
     ('aaaaaaaa-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'member'),
     ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'owner'),
     ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'member'),
-    ('aaaaaaaa-0000-0000-0000-000000000002', '44444444-4444-4444-4444-444444444444', 'member')
+    ('aaaaaaaa-0000-0000-0000-000000000002', '44444444-4444-4444-4444-444444444444', 'member'),
+    ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'owner'),
+    ('aaaaaaaa-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'owner'),
+    ('aaaaaaaa-0000-0000-0000-000000000004', '22222222-2222-2222-2222-222222222222', 'member'),
+    ('aaaaaaaa-0000-0000-0000-000000000004', '44444444-4444-4444-4444-444444444444', 'member')
 on conflict do nothing;
 
 insert into public.expenses
@@ -121,8 +136,8 @@ end $$;
 -- ============================================================
 do $$
 begin
-    perform public.afirmar('A01', (select count(*) from public.groups) = 2,
-        'Ana ve exactamente sus 2 grupos');
+    perform public.afirmar('A01', (select count(*) from public.groups) = 4,
+        'Ana ve exactamente sus 4 grupos (Casa, Propiedad, Individual y Trio)');
 
     perform public.afirmar('A02', (select count(*) from public.expenses) = 1,
         'Ana ve el gasto de su grupo');
@@ -130,14 +145,98 @@ begin
     perform public.afirmar('A03', (select count(*) from public.profiles) = 3,
         'Ana ve solo los perfiles con los que comparte grupo (ella, Bruno y Carla)');
 
-    perform public.afirmar('A04', (select count(*) from public.group_members) = 5,
-        'Ana ve las membresías de sus dos grupos');
+    perform public.afirmar('A04', (select count(*) from public.group_members) = 9,
+        'Ana ve las membresías de sus cuatro grupos');
 
     perform public.afirmar('A05',
         not exists (select 1 from public.profiles
                     where id = '33333333-3333-3333-3333-333333333333'),
         'Ana NO ve el perfil del intruso');
 end $$;
+
+-- ============================================================
+--  G · La pertenencia se define grupo a grupo
+--
+--  Regla de negocio: NO se puede asumir que todos los perfiles pertenecen a
+--  todos los grupos. Hay grupos de dos, alguno de tres y alguno individual.
+-- ============================================================
+do $$
+begin
+    perform public.afirmar('G01',
+        exists (select 1 from public.groups
+                where id = 'aaaaaaaa-0000-0000-0000-000000000003'),
+        'un grupo individual es válido y su dueña lo ve');
+
+    perform public.afirmar('G02',
+        (select count(*) from public.group_members
+         where group_id = 'aaaaaaaa-0000-0000-0000-000000000003') = 1,
+        'el grupo individual tiene exactamente un miembro');
+
+    perform public.afirmar('G03',
+        (select count(*) from public.group_members
+         where group_id = 'aaaaaaaa-0000-0000-0000-000000000004') = 3,
+        'un grupo puede tener tres participantes');
+end $$;
+
+-- Ana apunta un gasto en su grupo individual: tiene que funcionar.
+do $$
+declare
+    entro boolean := false;
+begin
+    begin
+        insert into public.expenses
+            (group_id, paid_by, amount, description, category, payer_share, spent_on, client_id)
+        values ('aaaaaaaa-0000-0000-0000-000000000003',
+                '11111111-1111-1111-1111-111111111111', 8.40, 'Café', 'comer fuera',
+                1, current_date, 'solo-1');
+        entro := true;
+    exception when others then
+        entro := false;
+    end;
+
+    perform public.afirmar('G04', entro,
+        'en un grupo individual SÍ se pueden apuntar gastos');
+end $$;
+
+-- Y Bruno, que comparte otros grupos con Ana, NO debe ver ni tocar ese grupo.
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222"}';
+
+do $$
+begin
+    perform public.afirmar('G05',
+        not exists (select 1 from public.groups
+                    where id = 'aaaaaaaa-0000-0000-0000-000000000003'),
+        'compartir OTROS grupos con alguien NO da acceso a su grupo individual');
+
+    perform public.afirmar('G06',
+        not exists (select 1 from public.expenses where client_id = 'solo-1'),
+        'Bruno tampoco ve los gastos del grupo individual de Ana');
+
+    perform public.afirmar('G07',
+        (select count(*) from public.groups) = 3,
+        'Bruno ve sus 3 grupos, no los 4 de Ana');
+end $$;
+
+do $$
+declare
+    entro boolean := false;
+begin
+    begin
+        insert into public.expenses
+            (group_id, paid_by, amount, description, category, payer_share, spent_on)
+        values ('aaaaaaaa-0000-0000-0000-000000000003',
+                '22222222-2222-2222-2222-222222222222', 1.00, 'Colado', 'otros',
+                0.5, current_date);
+        entro := true;
+    exception when insufficient_privilege then
+        entro := false;
+    end;
+
+    perform public.afirmar('G08', not entro,
+        'ATAQUE: Bruno NO puede escribir en el grupo individual de Ana');
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111"}';
 
 -- ============================================================
 --  B · Crear grupo con insert(...).select().single()
@@ -160,6 +259,10 @@ begin
         exists (select 1 from public.group_members
                 where group_id = devuelto and user_id = auth.uid() and role = 'owner'),
         'quien crea el grupo queda registrado como propietario');
+
+    perform public.afirmar('B03',
+        (select count(*) from public.group_members where group_id = devuelto) = 1,
+        'crear un grupo mete SOLO a su creador: nadie más entra automáticamente');
 end $$;
 
 -- ============================================================

@@ -93,25 +93,28 @@ export async function cargarTodo(sb, { online = true } = {}) {
 }
 
 /**
- * Membresías, o `null` si el modelo de pertenencia todavía no está en uso.
+ * Membresías, o `null` si la tabla todavía no existe.
  *
- * `null` significa "no hay datos de pertenencia, usa el comportamiento
- * heredado". Se devuelve en dos casos:
+ * La distinción importa y es de una sola cosa:
  *
- *  · la tabla no existe (la migración 0002 no se ha aplicado);
- *  · la tabla existe pero está VACÍA — es la ventana entre crear la tabla y
- *    ejecutar el backfill. Tratarla como una lista de membresías real
- *    escondería todos los grupos a todo el mundo, así que se prefiere el
- *    comportamiento anterior, que es el que la gente ya conocía.
+ *  · `null`  → la migración 0002 no se ha aplicado. No hay modelo de
+ *              pertenencia, así que la interfaz usa el comportamiento
+ *              anterior para poder seguir funcionando.
+ *  · `[]`    → la tabla existe y esta persona no pertenece a ningún grupo.
+ *              **Es un dato, no una laguna**: `group_members` es la fuente de
+ *              verdad, y no pertenecer significa no ver nada.
  *
- * En cuanto hay una sola fila, la pertenencia manda.
+ * Una versión anterior devolvía `null` también para la tabla vacía, para
+ * cubrir la ventana entre crear la tabla y ejecutar el backfill. Ya no hace
+ * falta —y contradiría la regla de negocio—: la migración crea la tabla y
+ * hace el backfill en la MISMA transacción, así que esa ventana no existe.
  */
 export async function traerMembresias(sb) {
     try {
         const { filas } = await traerTodo(sb, 'group_members', {
             afinar: (q) => q.order('group_id'),
         });
-        return filas.length ? filas : null;
+        return filas;
     } catch (e) {
         if (noExiste(e)) return null;
         throw e;

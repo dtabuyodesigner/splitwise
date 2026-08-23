@@ -188,48 +188,29 @@ create trigger tras_crear_grupo
     for each row execute function public.apuntar_creador_como_miembro();
 
 -- ============================================================
--- BACKFILL — LEER ANTES DE EJECUTAR
+-- El BACKFILL NO va aquí
 --
--- Deja el estado actual tal cual: los dos (o N) perfiles existentes pasan a
--- ser miembros de todos los grupos existentes. Es lo que la aplicación hace
--- hoy de hecho, así que nadie pierde acceso a nada al aplicarlo.
+-- Una versión anterior de este archivo proponía:
 --
--- Solo es correcto si TODOS los grupos actuales son compartidos por todos
--- los perfiles actuales. Si no es el caso, hay que sustituir esta sentencia
--- por un backfill explícito grupo a grupo.
+--     insert into group_members (...)
+--     select ... from groups cross join profiles;
 --
--- Está comentado a propósito. Descoméntalo únicamente después de haber
--- comprobado el resultado de las consultas de supabase/README.md §4.
+-- **Eso es incorrecto y se ha retirado.** Convertiría todos los grupos en
+-- compartidos por todas las cuentas, y la regla de negocio es la contraria:
+-- la pertenencia se define grupo a grupo. En cuanto exista una tercera
+-- persona o un grupo individual, ese backfill daría acceso a datos ajenos.
+--
+-- El backfill real vive en `0002b_backfill_pertenencia.sql`, es explícito
+-- grupo por grupo, y lo tiene que confirmar Dani antes de ejecutarse.
+--
+-- IMPORTANTE: este archivo y `0002b` deben aplicarse EN LA MISMA TRANSACCIÓN.
+-- Entre uno y otro, `group_members` existe pero está vacía, y como la
+-- pertenencia es la fuente de verdad, en ese instante nadie vería ningún
+-- grupo:
+--
+--     psql "$URL" -v ON_ERROR_STOP=1 --single-transaction \
+--       -f supabase/migrations/0002_group_members.sql \
+--       -f supabase/migrations/0002b_backfill_pertenencia.sql
+--
+-- Ver docs/PLAN-MIGRACION-DATOS.md §3.
 -- ============================================================
-
--- OJO con el rol. `created_by` se acaba de añadir en 0001, así que TODOS los
--- grupos que ya existían lo tendrán a NULL. Con un `case when g.created_by =
--- p.id` a secas, nadie quedaría como 'owner' en ningún grupo histórico, y
--- como la política `groups_borrar` exige rol 'owner', esos grupos quedarían
--- IMBORRABLES para siempre. Por eso, en un grupo sin creador conocido, todos
--- sus miembros entran como propietarios: es lo coherente con el estado de
--- hecho actual (dos personas que comparten todo).
---
--- insert into public.group_members (group_id, user_id, role)
--- select g.id, p.id,
---        case when g.created_by is null or g.created_by = p.id
---             then 'owner' else 'member' end
--- from public.groups g
--- cross join public.profiles p
--- on conflict do nothing;
-
--- Comprobación posterior recomendada:
---   select g.name, count(m.user_id) as miembros
---   from public.groups g
---   left join public.group_members m on m.group_id = g.id
---   group by g.name order by miembros;
--- Ningún grupo debería quedar con 0 miembros: si lo hace, quedará invisible
--- para todo el mundo en cuanto se apliquen las políticas de 0004.
---
--- Y ninguno debería quedarse sin propietario:
---   select g.name from public.groups g
---   where not exists (
---       select 1 from public.group_members m
---       where m.group_id = g.id and m.role = 'owner'
---   );
--- Si devuelve algo, esos grupos no se podrán borrar desde la app.
