@@ -105,14 +105,52 @@ begin
 end;
 $$;
 
--- `auth.users` pertenece a `supabase_auth_admin`. En la mayoría de proyectos
--- el rol `postgres` puede crear triggers sobre ella (es el patrón que
--- documenta la propia Supabase), pero según cómo esté provisionado el
--- proyecto puede fallar con "must be owner of relation users". Si ocurre,
--- hay que crear el trigger desde el editor SQL del panel de Supabase.
--- El PostgreSQL desechable de CI no puede detectar esto, porque allí la
--- tabla la crea el propio rol de pruebas.
-drop trigger if exists al_crear_usuario on auth.users;
-create trigger al_crear_usuario
-    after insert on auth.users
-    for each row execute function public.crear_perfil_al_registrarse();
+-- ------------------------------------------------------------
+-- El trigger SOLO se crea si no hay ya otro haciendo lo mismo.
+--
+-- El inventario de producción reveló que YA EXISTE:
+--     on_auth_user_created  AFTER INSERT ON auth.users
+--     EXECUTE FUNCTION public.handle_new_user()
+--
+-- Dos triggers de alta compitiendo sobre la misma tabla pueden duplicar
+-- filas, pisarse el `display_name` o el `color`, o hacerse fallar entre sí.
+-- Y no se puede decidir cuál sobra sin leer antes qué hace el que ya está:
+-- para eso está `supabase/pruebas/inspeccion-trigger-alta.sql`.
+--
+-- Así que esta migración NO toca `auth.users` si ya hay un trigger de
+-- usuario ahí. Lo dice por consola y sigue. La función queda creada, por si
+-- se decide reutilizarla, pero sin engancharse a nada.
+--
+-- Nota de entorno: `auth.users` pertenece a `supabase_auth_admin`. En la
+-- mayoría de proyectos el rol `postgres` puede crear triggers sobre ella (es
+-- el patrón que documenta la propia Supabase), pero según cómo esté
+-- provisionado puede fallar con "must be owner of relation users". Si ocurre,
+-- hay que crearlo desde el editor SQL del panel.
+-- ------------------------------------------------------------
+do $$
+declare
+    ya_existe text;
+begin
+    select string_agg(t.tgname, ', ') into ya_existe
+    from pg_trigger t
+    join pg_class rel on rel.oid = t.tgrelid
+    join pg_namespace n on n.oid = rel.relnamespace
+    where n.nspname = 'auth' and rel.relname = 'users'
+      and not t.tgisinternal
+      and t.tgname <> 'al_crear_usuario';
+
+    if ya_existe is not null then
+        raise notice
+            'auth.users ya tiene el trigger de alta "%": no se crea otro. '
+            'Revisa supabase/pruebas/inspeccion-trigger-alta.sql y decide si '
+            'reutilizarlo o sustituirlo.', ya_existe;
+        return;
+    end if;
+
+    drop trigger if exists al_crear_usuario on auth.users;
+    create trigger al_crear_usuario
+        after insert on auth.users
+        for each row execute function public.crear_perfil_al_registrarse();
+
+    raise notice 'Creado el trigger al_crear_usuario sobre auth.users';
+end $$;

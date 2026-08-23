@@ -15,6 +15,80 @@
 -- Principio: nadie ve ni toca nada de un grupo del que no es miembro.
 -- ============================================================
 
+-- ============================================================
+-- PASO 0 · RETIRAR LAS POLÍTICAS HISTÓRICAS
+--
+-- Esto NO es opcional y es lo primero que tiene que pasar.
+--
+-- El inventario de producción reveló que RLS **ya está activa**, pero con
+-- políticas heredadas del modelo de dos personas que conceden acceso global
+-- a `authenticated` con `using (true)` / `with check (true)`. Sus nombres son
+-- descripciones en castellano ("cualquiera de los dos borra gastos",
+-- "gastos visibles para la pareja"...), no los que usa este archivo.
+--
+-- Y aquí está el problema: **todas las políticas PERMISSIVE se combinan con
+-- OR**. Si se crean las políticas nuevas sin retirar las viejas, una sola
+-- política `using (true)` que sobreviva vuelve a abrir la tabla entera y las
+-- nuevas no cierran nada. Sería peor que no migrar, porque parecería
+-- protegido sin estarlo.
+--
+-- Por qué se enumera del catálogo en vez de listar los nombres a mano:
+-- cualquier nombre que no conociéramos sobreviviría en silencio. Enumerar
+-- garantiza que no queda ninguna, se llame como se llame.
+--
+-- Por qué es seguro: el borrado está acotado a EXACTAMENTE estas cinco
+-- tablas. Esta base de datos la comparte también la aplicación de viajes
+-- (`viajes`, `viaje_diario`, `viaje_fotos`), y sus políticas NO se tocan.
+-- Un `drop policy` dinámico sobre todo el esquema `public` habría roto esa
+-- aplicación.
+-- ============================================================
+do $$
+declare
+    -- Las únicas tablas sobre las que este archivo tiene autoridad.
+    tablas_gastos constant text[] := array[
+        'profiles', 'groups', 'group_members', 'expenses', 'settlements'
+    ];
+    pol record;
+    retiradas integer := 0;
+begin
+    for pol in
+        select schemaname, tablename, policyname
+        from pg_policies
+        where schemaname = 'public'
+          and tablename = any (tablas_gastos)
+        order by tablename, policyname
+    loop
+        execute format('drop policy %I on %I.%I',
+                       pol.policyname, pol.schemaname, pol.tablename);
+        raise notice 'Política histórica retirada: %.% → %',
+            pol.schemaname, pol.tablename, pol.policyname;
+        retiradas := retiradas + 1;
+    end loop;
+
+    raise notice '% política(s) retiradas de las tablas de gastos', retiradas;
+
+    -- Cinturón y tirantes: si algo hubiera quedado, no se sigue.
+    if exists (
+        select 1 from pg_policies
+        where schemaname = 'public' and tablename = any (tablas_gastos)
+    ) then
+        raise exception 'Han sobrevivido políticas en las tablas de gastos';
+    end if;
+end $$;
+
+-- Comprobación explícita de que NO se ha tocado la aplicación de viajes.
+do $$
+declare
+    cuantas integer;
+begin
+    select count(*) into cuantas
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('viajes', 'viaje_diario', 'viaje_fotos');
+
+    raise notice 'Políticas de la aplicación de viajes intactas: %', cuantas;
+end $$;
+
 -- ------------------------------------------------------------
 -- Activación
 -- ------------------------------------------------------------

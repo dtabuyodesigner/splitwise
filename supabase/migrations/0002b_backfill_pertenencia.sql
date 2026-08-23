@@ -30,6 +30,23 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- PASO 0 · Este archivo va DESPUÉS de 0002. Si no, no hay dónde escribir.
+--
+-- El orden de los archivos depende de la configuración regional del sistema:
+-- en algunos locales `0002b_` se ordena ANTES que `0002_group_members`, así
+-- que un `for f in migrations/*.sql` puede aplicarlos al revés. Esta guarda
+-- lo convierte en un error claro en vez de en un fallo confuso.
+-- ------------------------------------------------------------
+do $$
+begin
+    if to_regclass('public.group_members') is null then
+        raise exception
+            'group_members no existe: 0002b se está aplicando ANTES que 0002_group_members'
+            using hint = 'Aplica 0002_group_members.sql primero, y los dos en la misma transacción.';
+    end if;
+end $$;
+
+-- ------------------------------------------------------------
 -- PASO 1 · Inventario, solo lectura. Ejecutar y revisar ANTES de rellenar.
 --          La consulta está en docs/PLAN-MIGRACION-DATOS.md §3.1; produce una
 --          tabla anonimizada (Perfil 1, Perfil 2...) para poder decidir sin

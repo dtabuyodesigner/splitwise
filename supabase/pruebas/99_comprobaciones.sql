@@ -40,6 +40,83 @@ begin
     end if;
 end $$;
 
+-- ------------------------------------------------------------
+-- Ninguna política de las tablas de gastos puede abrir la tabla entera.
+--
+-- Producción tenía políticas históricas con `using (true)` / `with check
+-- (true)`. Como TODAS las permissive se combinan con OR, una sola que
+-- sobreviva vuelve a abrir la tabla y las políticas nuevas no cierran nada.
+-- Esta comprobación es la red que impide que eso pase inadvertido.
+-- ------------------------------------------------------------
+do $$
+declare
+    abiertas text;
+begin
+    select string_agg(
+               tablename || '.' || policyname ||
+               ' (using=' || coalesce(qual, '-') ||
+               ', check=' || coalesce(with_check, '-') || ')',
+               E'\n  ')
+      into abiertas
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('profiles', 'groups', 'group_members', 'expenses', 'settlements')
+      and permissive = 'PERMISSIVE'
+      and (btrim(coalesce(qual, '')) = 'true'
+           or btrim(coalesce(with_check, '')) = 'true');
+
+    if abiertas is not null then
+        raise exception
+            E'Hay políticas que abren la tabla entera a cualquier usuario autenticado:\n  %',
+            abiertas
+            using hint = 'Ninguna política de las tablas de gastos debe usar `true`. '
+                         'Si alguna vez hiciera falta, hay que justificarla aquí de forma expresa.';
+    end if;
+end $$;
+
+-- Y ninguna política histórica puede haber sobrevivido a la migración.
+-- Se detectan por lo que son: políticas de las tablas de gastos cuyo nombre
+-- no está entre los que crea 0004.
+do $$
+declare
+    esperadas constant text[] := array[
+        'profiles_leer', 'profiles_modificar_el_mio', 'profiles_crear_el_mio',
+        'groups_leer_los_mios', 'groups_crear', 'groups_modificar', 'groups_borrar',
+        'miembros_leer', 'miembros_invitar', 'miembros_cambiar_rol', 'miembros_expulsar',
+        'gastos_leer', 'gastos_crear', 'gastos_modificar', 'gastos_borrar',
+        'liquidaciones_leer', 'liquidaciones_crear', 'liquidaciones_modificar',
+        'liquidaciones_borrar'
+    ];
+    intrusas text;
+begin
+    select string_agg(tablename || '.' || policyname, ', ') into intrusas
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('profiles', 'groups', 'group_members', 'expenses', 'settlements')
+      and policyname <> all (esperadas);
+
+    if intrusas is not null then
+        raise exception 'Han sobrevivido políticas ajenas a la migración: %', intrusas
+            using hint = 'El paso 0 de 0004_rls.sql debería haberlas retirado.';
+    end if;
+end $$;
+
+-- La aplicación de viajes conserva SUS políticas: la migración de gastos no
+-- puede haberlas tocado.
+do $$
+declare
+    cuantas integer;
+begin
+    select count(*) into cuantas
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('viajes', 'viaje_diario', 'viaje_fotos');
+
+    -- En una base recién creada no hay app de viajes y esto es 0, que es
+    -- correcto. En el escenario de actualización hay 7 y deben seguir ahí.
+    raise notice 'Políticas de la aplicación de viajes: %', cuantas;
+end $$;
+
 -- El índice único de client_id existe: sin él, la cola offline duplica gastos.
 do $$
 begin

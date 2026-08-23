@@ -89,9 +89,12 @@ jobs:
         run: |
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql 2>&1 | tee -a /tmp/salida-sql.log
-          for f in supabase/migrations/*.sql; do
-            echo "── aplicando $f" | tee -a /tmp/salida-sql.log
-            psql -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee -a /tmp/salida-sql.log
+          # Orden EXPLÍCITO: el glob depende del locale y en algunos
+          # 0002b se ordena antes que 0002_group_members.
+          for f in 0001_baseline_esquema 0002_group_members 0002b_backfill_pertenencia \
+                   0003_restricciones_indices 0004_rls 0005_realtime; do
+            echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
           done
 
       - name: Comprobar el esquema resultante
@@ -113,8 +116,9 @@ jobs:
         run: |
           set -eo pipefail
           echo "── reaplicando las migraciones ──" | tee -a /tmp/salida-sql.log
-          for f in supabase/migrations/*.sql; do
-            psql -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
+          for f in 0001_baseline_esquema 0002_group_members 0002b_backfill_pertenencia \
+                   0003_restricciones_indices 0004_rls 0005_realtime; do
+            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
           done
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql 2>&1 | tee -a /tmp/salida-sql.log
 
@@ -170,4 +174,113 @@ jobs:
               echo '```'
             } > /tmp/comentario.md
           fi
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario.md
+
+  actualizacion:
+    name: Actualización desde el esquema histórico
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: prueba
+          POSTGRES_DB: prueba
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+        ports: ['5432:5432']
+
+    env:
+      PGPASSWORD: prueba
+      PGHOST: localhost
+      PGUSER: postgres
+      PGDATABASE: prueba
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Reproducir el estado ACTUAL de producción
+        # RLS ya activa, políticas históricas permisivas con sus nombres
+        # reales, el trigger de alta que ya existe, la aplicación de viajes
+        # que comparte la base, y datos con la misma forma que los reales.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stub_supabase.sql 2>&1 | tee -a /tmp/salida-sql.log
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/01_escenario_historico.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Comprobar que se parte de un estado REALMENTE abierto
+        # Si el escenario no reproduce el problema, el resto no demostraría
+        # nada: se exige que haya políticas abiertas, el trigger de alta ya
+        # existente, y que group_members todavía no exista.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/02_verificar_punto_de_partida.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Fotografiar la aplicación de viajes ANTES de migrar
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/96_frontera_viajes_antes.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Aplicar las migraciones sobre el estado histórico
+        run: |
+          set -eo pipefail
+          # Orden EXPLÍCITO: el glob depende del locale y en algunos
+          # 0002b se ordena antes que 0002_group_members.
+          for f in 0001_baseline_esquema 0002_group_members 0002b_backfill_pertenencia \
+                   0003_restricciones_indices 0004_rls 0005_realtime; do
+            echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
+          done
+
+      - name: Comprobar que la aplicación de viajes sigue intacta
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/97_frontera_viajes_despues.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Comprobar el esquema y que no quedan políticas permisivas
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Un intruso no obtiene acceso por una política antigua residual
+        # Los datos históricos siguen ahí. Se comprueba con consultas reales
+        # que una tercera cuenta no ve ni toca nada, que es justo lo que las
+        # políticas `using (true)` permitían antes.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/95_intruso_tras_migrar.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Resumen del SQL ejecutado
+        if: always()
+        run: |
+          {
+            echo '### Actualización desde el esquema histórico'
+            echo
+            echo '```'
+            tail -n 200 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dejar el log en el PR si algo ha fallado
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "### La actualización desde el esquema histórico ha fallado · \`${GITHUB_SHA:0:7}\`"
+            echo
+            echo '```'
+            tail -n 150 /tmp/salida-sql.log 2>/dev/null || echo '(sin salida)'
+            echo '```'
+          } > /tmp/comentario.md
           gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario.md
