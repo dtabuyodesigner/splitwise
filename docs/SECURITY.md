@@ -113,6 +113,34 @@ restricciones, índices, políticas, triggers, funciones, privilegios,
 pertenencia a Realtime y número de filas de esas tres tablas antes y después
 de migrar.
 
+### 4.-0.5 Riesgo operativo: el alta de cuentas está ABIERTA
+
+Configuración verificada en el panel de Supabase:
+
+| Ajuste | Estado |
+|---|---|
+| **Allow new users to sign up** | **ACTIVADO** |
+| Confirm email | activado |
+| Proveedor Email | activado |
+| Allow manual linking | desactivado |
+| Allow anonymous sign-ins | desactivado |
+
+**Hoy esto es un riesgo real.** Con las políticas históricas `using (true)`,
+cualquiera que se registre —y cualquiera puede— obtiene acceso de lectura y
+escritura a **todos** los gastos, grupos y liquidaciones. Solo lo mitiga que
+haga falta confirmar el correo, y que nadie lo haya intentado.
+
+**Después de aplicar `0004` deja de serlo.** Una cuenta nueva sin membresías
+no ve ningún grupo, ningún gasto, ninguna liquidación ni ningún perfil salvo
+el suyo. Está comprobado en CI con consultas reales: la aserción `[U03]` da de
+alta a alguien y verifica que no accede a nada.
+
+Es decir: **la migración de RLS es lo que cierra este riesgo**, no un ajuste
+del panel. Cerrar el alta sería una medida adicional, no la solución.
+
+Nada de esta configuración se ha cambiado desde el código, ni se cambiará: se
+documenta y se comprueba su consecuencia.
+
 ### 4.0 Dos trampas de RLS que ya han mordido en este proyecto
 
 Las dos aparecieron escribiendo estas políticas. Conviene tenerlas presentes

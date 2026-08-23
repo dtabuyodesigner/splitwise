@@ -108,41 +108,29 @@ group by g.id, g.name, g.created_at
 order by g.created_at;
 ```
 
-#### 3.2 Tabla de decisión — **pendiente de Dani**
+#### 3.2 Decisión de Dani — **confirmada**
 
-El inventario de solo lectura ya se ha ejecutado. Este es el estado real, sin
-UUID ni correos:
+| Grupo | Gastos | Liquid. | Miembros | Propietarios |
+|---|---|---|---|---|
+| Casa | 0 | 0 | Dani y Pilar | **los dos** |
+| Slovenia | 51 | 1 | Dani y Pilar | **los dos** |
+| Bierzo & Asturias | 2 | 0 | Dani y Pilar | **los dos** |
 
-| Grupo | Gastos | Liquid. | Pagadores | En liquidaciones | **¿Quién pertenece?** | **¿Quién es owner?** |
-|---|---|---|---|---|---|---|
-| Casa | 0 | 0 | — | — | ← **decidir** | ← **decidir** |
-| Slovenia | 51 | 1 | Perfil 1, Perfil 2 | Perfil 1, Perfil 2 | ← **decidir** | ← **decidir** |
-| Bierzo & Asturias | 2 | 0 | Perfil 1, Perfil 2 | — | ← **decidir** | ← **decidir** |
+Identidad verificada por consulta de solo lectura: **dos perfiles**, ambos con
+nombre y con color, y **colores distintos**. `laurel` es Dani y es el perfil
+más antiguo; `buganvilla` es Pilar.
 
-Contexto: **2 cuentas**, 2 perfiles, 3 grupos, 53 gastos y 1 liquidación. La
-tabla `group_members` todavía no existe.
+Los dos como propietarios porque `groups.created_by` no existía antes de
+`0001`: no hay forma de saber quién creó cada grupo, y es preferible eso a que
+alguno se quede sin nadie que pueda administrarlo. **Es una decisión de
+migración histórica, no el comportamiento futuro.**
 
-**Calidad de los datos: impecable.** Cero duplicados de `client_id`, cero
-huérfanos, cero importes no positivos, cero repartos fuera de rango, cero
-liquidaciones consigo mismo, y ninguna cuenta sin perfil. Es decir: `0003`
-puede aplicarse sin limpieza previa, y sus restricciones `CHECK` podrán
-validarse inmediatamente en lugar de quedarse en `NOT VALID`.
+**Casa era el caso sin red.** Sin gastos ni liquidaciones, no había nada en la
+base de datos que apuntara en ninguna dirección: las guardas del backfill
+detectan un grupo sin miembros o sin propietario, pero no pueden detectar un
+miembro *de más*. Lo ha decidido Dani.
 
-**Casa no tiene ninguna pista.** Sin gastos ni liquidaciones, no hay nada en
-la base de datos que diga quién pertenece a ese grupo. Solo lo sabe Dani.
-
-**El pagador es una pista, no la respuesta.** Que en Slovenia y en Bierzo &
-Asturias aparezcan los dos perfiles como pagadores hace muy probable que sean
-compartidos, pero no lo demuestra: alguien puede haber apuntado un gasto en
-nombre del otro.
-
-**Propietarios.** `groups.created_by` no existe todavía —lo añade `0001`—, así
-que por SQL **no se puede saber quién creó cada grupo**. Para un grupo
-compartido, la propuesta es **hacer `owner` a las dos personas**: es preferible
-a que el grupo se quede sin nadie que pueda administrarlo. Es una decisión de
-migración histórica, no el comportamiento futuro.
-
-#### 3.3 Escribir el backfill#### 3.3 Escribir el backfill
+#### 3.3 Escribir el backfill#### 3.3 Escribir el backfill#### 3.3 Escribir el backfill
 
 Rellena el PASO 2 de `supabase/migrations/0002b_backfill_pertenencia.sql` con
 una línea por persona y grupo.
