@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ============================================================
+#  SUBTRABAJO 2 · valida las migraciones sobre una COPIA
+#
+#      supabase/fase2/validar-en-copia.sh "$URL_COPIA"
+#      supabase/fase2/validar-en-copia.sh "$URL_COPIA" --dry-run
+#
+#  NO se ha ejecutado todavía. Este archivo es el guion preparado.
+#
+#  Lo primero que hace, SIEMPRE, es pasar la guarda: si la conexión huele a
+#  producción o le falta la marca de copia, aborta sin ejecutar ningún SQL.
+#
+#  Este script NUNCA imprime la cadena de conexión.
+# ============================================================
+set -euo pipefail
+
+URL="${1:-}"
+MODO="${2:-}"
+AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RAIZ="$(cd "$AQUI/../.." && pwd)"
+
+if [ -z "$URL" ]; then
+    echo "Uso: $0 <url-de-la-COPIA> [--dry-run]" >&2
+    exit 64
+fi
+
+paso() { echo; echo "══ $* ══"; }
+
+# ── 0 · La guarda, antes que nada ────────────────────────────
+paso "0 · Comprobando que la conexión NO es producción"
+"$AQUI/guarda-no-produccion.sh" "$URL"
+
+if [ "$MODO" = "--dry-run" ]; then
+    echo
+    echo "--dry-run: la guarda ha pasado. No se ejecuta nada más."
+    exit 0
+fi
+
+# ── 1 · Fotografía previa ────────────────────────────────────
+paso "1 · Fotografía ANTES de migrar"
+psql "$URL" -v ON_ERROR_STOP=1 -v momento=antes -f "$AQUI/20_foto.sql"
+
+# ── 2 · Las migraciones, con el mismo procedimiento que producción ──
+paso "2 · Aplicando las migraciones (aplicar-migraciones.sh)"
+"$RAIZ/supabase/aplicar-migraciones.sh" "$URL"
+
+# ── 3 · Fotografía posterior ─────────────────────────────────
+paso "3 · Fotografía DESPUÉS de migrar"
+psql "$URL" -v ON_ERROR_STOP=1 -v momento=despues -f "$AQUI/20_foto.sql"
+
+# ── 4 · Comparación ──────────────────────────────────────────
+paso "4 · Comparando antes y después"
+psql "$URL" -v ON_ERROR_STOP=1 -f "$AQUI/30_comparar.sql"
+
+# ── 5 · Las comprobaciones de esquema y los ataques ──────────
+paso "5 · Comprobaciones de esquema"
+psql "$URL" -v ON_ERROR_STOP=1 -f "$RAIZ/supabase/pruebas/99_comprobaciones.sql"
+
+paso "6 · Alta de usuario y aislamiento de un tercero"
+psql "$URL" -v ON_ERROR_STOP=1 -f "$RAIZ/supabase/pruebas/94_alta_de_usuario.sql"
+
+echo
+echo "Validación sobre la copia completada."
+echo "Queda por hacer a mano: el recorrido autenticado desde la aplicación."
