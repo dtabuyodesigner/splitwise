@@ -412,6 +412,12 @@ jobs:
     # vacío y desechable que crea este mismo trabajo.
     if: github.ref_name == 'fase-2/validacion-copia' || github.base_ref == 'estabilizacion/fase-1'
 
+    # Solo para dejar la evidencia como comentario en el PR.
+    # No se usa ningún secreto propio: GITHUB_TOKEN lo emite Actions.
+    permissions:
+      contents: read
+      pull-requests: write
+
     services:
       postgres:
         image: postgres:15
@@ -438,7 +444,9 @@ jobs:
       - name: Las guardas rechazan producción sin conectarse
         # Con un stub de psql: se comprueba que las URLs prohibidas abortan
         # ANTES de invocar psql, no solo que aborten.
-        run: supabase/fase2/pruebas/probar-guardas.sh
+        run: |
+          set -eo pipefail
+          supabase/fase2/pruebas/probar-guardas.sh 2>&1 | tee -a /tmp/salida-fase2.log
 
       - name: Instalar psql
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
@@ -447,8 +455,10 @@ jobs:
         env:
           PGPASSWORD: desechable
         run: |
+          set -eo pipefail
           supabase/fase2/pruebas/probar-marca.sh \
-            "postgresql://postgres:desechable@localhost:5432/desechable"
+            "postgresql://postgres:desechable@localhost:5432/desechable" \
+            2>&1 | tee -a /tmp/salida-fase2.log
 
       - name: Ninguna referencia a producción fuera de la guarda
         run: |
@@ -468,3 +478,46 @@ jobs:
           ! grep -rlE "eyJ[A-Za-z0-9_-]{20,}" supabase/fase2 docs/FASE-2-VALIDACION-COPIA.md
           ! grep -rlE "postgres(ql)?://[^ '\"]*:[^ '\"]*@" supabase/fase2/*.sh supabase/fase2/*.sql
           echo "Sin tokens ni cadenas de conexión con credenciales"
+
+      - name: Dejar constancia de las guardas en el PR
+        # Mismo motivo que en el trabajo de esquema: los logs de Actions no se
+        # pueden leer por API, así que la evidencia de que una URL de
+        # producción aborta ANTES de invocar psql se publica aquí.
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ESTADO: ${{ job.status }}
+        run: |
+          COMMIT="${{ github.sha }}"
+          if [ "$ESTADO" = "success" ]; then
+            {
+              echo "### Herramientas de copia (fase 2) · verde · \`${COMMIT:0:7}\`"
+              echo
+              echo "Las guardas se prueban con un stub de \`psql\` que anota cada"
+              echo "invocación: así se demuestra que una URL de producción aborta"
+              echo "**antes** de conectarse, no solo que aborta. La marca de copia"
+              echo "se prueba contra un PostgreSQL vacío y desechable creado por"
+              echo "este mismo trabajo. Ni secretos, ni producción, ni datos personales."
+              echo
+              grep -oE "[0-9]+/[0-9]+ aserciones superadas" /tmp/salida-fase2.log | tail -2 || true
+              echo
+              echo "<details><summary>Aserciones ejecutadas</summary>"
+              echo
+              echo '```'
+              grep -E "^[[:space:]]+\[[A-Za-z0-9-]+\] ok " /tmp/salida-fase2.log || echo "(sin detalle)"
+              echo '```'
+              echo
+              echo "</details>"
+            } > /tmp/comentario-fase2.md
+          else
+            {
+              echo "### Las herramientas de copia han fallado · \`${COMMIT:0:7}\`"
+              echo
+              echo "Últimas 150 líneas de la salida:"
+              echo
+              echo '```'
+              tail -n 150 /tmp/salida-fase2.log 2>/dev/null || echo "(sin salida)"
+              echo '```'
+            } > /tmp/comentario-fase2.md
+          fi
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario-fase2.md
