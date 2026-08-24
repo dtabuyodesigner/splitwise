@@ -117,6 +117,16 @@ as $$
       and t.tablename in ('profiles','groups','group_members','expenses','settlements')
 
     union all
+    -- ── Realtime: qué tablas de gastos están publicadas ──
+    -- Aparte de `viajes:realtime`, que es frontera de la otra aplicación.
+    -- `pg_dump --schema` no trae las publicaciones, así que en una copia esto
+    -- solo tiene valor si la publicación se ha reconstruido a mano antes.
+    select 'realtime', pt.tablename, pt.pubname
+    from pg_publication_tables pt
+    where pt.pubname = 'supabase_realtime' and pt.schemaname = 'public'
+      and pt.tablename in ('profiles','groups','group_members','expenses','settlements')
+
+    union all
     -- ── Mecanismo de alta de perfiles ──
     select 'alta', tg.tgname, p.proname || '() en ' || n.nspname
     from pg_trigger tg

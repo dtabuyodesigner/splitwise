@@ -110,13 +110,42 @@ Detalles que costaron un intento fallido cada uno, y que hay que respetar:
 - **La consulta de roles usa `aclexplode(c.relacl)` a secas.** El
   `coalesce(..., '{}'::aclitem[])` que se puso «por si acaso» convierte los
   permisos por defecto en un array vacío y devuelve menos roles de los que hay.
+- **Hay que conceder `authenticated` y `anon` al usuario que se conecta.** En
+  Supabase, el rol `postgres` los tiene de serie; en la copia son roles vacíos
+  recién creados y nadie pertenece a ellos. Sin la concesión,
+  `94_alta_de_usuario.sql` muere en `set local role authenticated` y **la prueba
+  del tercero autenticado no llega a ejecutarse**: el resto sale verde y la
+  comprobación que de verdad importa se queda sin correr.
 
-> **Lo que el volcado por esquemas NO trae, y hay que anotar**: `pg_dump` con
-> `--schema` no incluye ni las extensiones ni las **publicaciones**. La copia se
-> restaura sin `supabase_realtime`, así que la validación **no puede demostrar
-> que Realtime sobrevive a las migraciones**. La pertenencia real —`expenses`,
-> `groups` y `settlements` publicadas; ninguna tabla de viajes— se lee de
-> producción y se guarda aparte, en `realtime.txt`, para poder compararla a mano.
+  ```sql
+  set role postgres;                 -- el usuario de la copia es miembro suyo
+  grant authenticated to <usuario>;
+  grant anon          to <usuario>;
+  reset role;
+  ```
+
+  No cambia datos, ni políticas, ni esquema. Es la misma concesión que hace
+  `00_stub_supabase.sql` en el CI.
+
+> **Lo que el volcado por esquemas NO trae**: `pg_dump` con `--schema` no
+> incluye ni las extensiones ni las **publicaciones**. La copia se restaura sin
+> `supabase_realtime`, así que **hay que reconstruirla antes de validar** —si no,
+> `0005` la crea de cero y la validación no demuestra nada sobre Realtime. La
+> pertenencia real se lee del catálogo de producción durante el volcado y se
+> guarda en `realtime.txt`:
+>
+> ```sql
+> create publication supabase_realtime;
+> alter publication supabase_realtime add table public.expenses;
+> alter publication supabase_realtime add table public.groups;
+> alter publication supabase_realtime add table public.settlements;
+> ```
+>
+> Ninguna tabla de viajes pertenecía a esa publicación, y ninguna debe entrar.
+>
+> `supabase_realtime_messages_publication` **no se reconstruye**: es del esquema
+> `realtime`, que no está en esta copia ni lo tocan las migraciones de Splitwise.
+> Queda como **frontera externa no validada**.
 
 ## 6. Proteger los datos de la copia
 

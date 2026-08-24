@@ -92,10 +92,30 @@ comprobar F09 "fotografiar no cambia los datos históricos" \
        && [ "$(consulta "select count(*) from public.groups")" = "3" ] \
        && [ "$(consulta "select count(*) from public.profiles")" = "2" ] && echo 0 || echo 1)"
 
+# ── 3b · Realtime de las tablas de gastos, fuera de la frontera de viajes ──
+# El escenario historico ya publica las tablas de VIAJES en supabase_realtime,
+# asi que esto comprueba de verdad que los dos ambitos no se mezclan.
+psql "$URL" -X -q -v ON_ERROR_STOP=1 </dev/null >/dev/null <<'SQL'
+alter publication supabase_realtime add table public.expenses;
+alter publication supabase_realtime add table public.groups;
+SQL
+psql "$URL" -X -q -v ON_ERROR_STOP=1 -v momento=realtime \
+     -f "$RAIZ/supabase/fase2/20_foto.sql" </dev/null >/dev/null
+comprobar F10 "las tablas de gastos publicadas se capturan en el ambito 'realtime'" \
+    "$([ "$(consulta "select string_agg(clave, ',' order by clave) from public.foto_validacion
+                       where momento='realtime' and ambito='realtime'")" = "expenses,groups" ] && echo 0 || echo 1)"
+comprobar F11 "el ambito 'realtime' NO absorbe las tablas de viajes publicadas" \
+    "$([ "$(consulta "select count(*) from public.foto_validacion
+                       where momento='realtime' and ambito='realtime'
+                         and clave in ('viajes','viaje_diario','viaje_fotos')")" = "0" ] && echo 0 || echo 1)"
+comprobar F12 "viajes:realtime sigue capturando las suyas, por separado" \
+    "$([ "$(consulta "select count(*) from public.foto_validacion
+                       where momento='realtime' and ambito='viajes:realtime'")" = "2" ] && echo 0 || echo 1)"
+
 # ── 4 · La auxiliar, en sus dos casos ────────────────────────
-comprobar F10 "contar_si_existe(NULL) devuelve TABLA-AUSENTE" \
+comprobar F13 "contar_si_existe(NULL) devuelve TABLA-AUSENTE" \
     "$([ "$(consulta "select public.contar_si_existe(to_regclass('public.no_existe_esta_tabla'))")" = "TABLA-AUSENTE" ] && echo 0 || echo 1)"
-comprobar F11 "contar_si_existe(tabla real) devuelve su recuento" \
+comprobar F14 "contar_si_existe(tabla real) devuelve su recuento" \
     "$([ "$(consulta "select public.contar_si_existe(to_regclass('public.expenses'))")" = "53" ] && echo 0 || echo 1)"
 
 echo "════ $((total - fallos))/$total aserciones superadas ════"
