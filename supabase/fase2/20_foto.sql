@@ -17,6 +17,31 @@ create table if not exists public.foto_validacion (
     valor   text not null
 );
 
+-- ── Contar una tabla que puede no existir todavía ──────────────
+-- `tomar_foto()` es `language sql`, y PostgreSQL analiza el cuerpo entero al
+-- crear la función: una referencia literal a `public.group_members` hace
+-- fallar el CREATE FUNCTION con «no existe la relación» cuando la tabla aún
+-- no está, que es justo el estado que hay que fotografiar ANTES de migrar.
+--
+-- Esta auxiliar recibe el OID ya resuelto (o NULL) y solo ejecuta el count
+-- dinámicamente si la tabla existe. Ni crea tablas ficticias, ni captura
+-- excepciones: no hay nada que ocultar, solo un NULL que comprobar.
+create or replace function public.contar_si_existe(rel regclass)
+returns text
+language plpgsql
+stable
+as $contar$
+declare
+    filas bigint;
+begin
+    if rel is null then
+        return 'TABLA-AUSENTE';
+    end if;
+    execute format('select count(*) from %s', rel) into filas;
+    return filas::text;
+end
+$contar$;
+
 create or replace function public.tomar_foto()
 returns table (ambito text, clave text, valor text)
 language sql
@@ -34,7 +59,7 @@ as $$
     select 'recuento', 'auth.users',  count(*)::text from auth.users
     union all
     select 'recuento', 'group_members',
-           coalesce((select count(*)::text from public.group_members), 'TABLA-AUSENTE')
+           public.contar_si_existe(to_regclass('public.group_members'))
 
     union all
     -- ── Los grupos, por nombre. El nombre hace falta: el backfill lo exige ──

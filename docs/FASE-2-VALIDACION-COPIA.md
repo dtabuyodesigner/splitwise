@@ -25,21 +25,25 @@ Se han considerado las tres opciones:
 
 **La base de destino debe estar fuera de `*.supabase.co`.** La guarda lo impone.
 
-## 3. Lo que hace falta y AHORA MISMO NO HAY
+## 3. Entorno real, y las versiones que importan
 
-En la máquina donde se está trabajando **no hay ninguna de las herramientas
-necesarias**, y no se pueden instalar:
+La copia ya existe. El entorno que la sostiene:
 
-| Herramienta | Estado |
+| | |
 |---|---|
-| `psql`, `pg_dump`, `pg_restore` | **no instalados** |
-| Supabase CLI | **no instalada** |
-| Docker / Podman | **no instalados** |
-| `sudo` sin contraseña | **no disponible** — no se pueden instalar |
-| MCP de Supabase | requiere autenticación interactiva; sesión no interactiva |
+| **Producción** | **PostgreSQL 17** — no 15, como se supuso al principio |
+| Copia local | PostgreSQL 17, clúster `main`, socket `/var/run/postgresql`, puerto **5433** |
+| Base | `splitwise_validacion_fase2` |
+| CI | PostgreSQL 15 |
 
-**Consecuencia: el Subtrabajo 2 no se puede ejecutar desde aquí.** Lo tiene que
-lanzar Dani en una máquina con PostgreSQL 15 y `pg_dump`, o con Docker.
+**La restauración tiene que hacerse con PostgreSQL 17.** No es una preferencia:
+el volcado de un servidor 17 contiene el privilegio `MAINTAIN`, que no existe en
+15, y `pg_restore` de 15 no sabe qué hacer con él. Volcar con el cliente 17 y
+restaurar en un servidor 15 falla.
+
+**Queda una diferencia real de versión**: el CI valida las migraciones sobre
+PostgreSQL 15 y producción es 17. La validación sobre la copia es precisamente
+lo que cierra ese hueco, porque la copia sí es 17.
 
 ## 4. Riesgos, y qué los contiene
 
@@ -54,33 +58,65 @@ lanzar Dani en una máquina con PostgreSQL 15 y `pg_dump`, o con Docker.
 
 ## 5. Cómo obtener la copia — **lo hace Dani**
 
-**Producción es de solo lectura en todo este paso.** `pg_dump` no escribe nada.
+**Producción es de solo lectura en todo este paso.** `pg_dump` abre su
+transacción como `READ ONLY`, y además la conexión lleva
+`PGOPTIONS='-c default_transaction_read_only=on'`, de modo que cualquier
+escritura fallaría con error en vez de ejecutarse. Esa protección **no se
+retira hasta que el volcado ha terminado bien**, y no hay ningún reintento sin
+ella: si una consulta protegida falla, se aborta.
+
+No hace falta crear ningún rol de solo lectura en producción — hacerlo sería
+una escritura.
 
 ```bash
-# 1 · Volcado completo. La URL está en Supabase → Project settings → Database.
-#     NO la pegues en ningún chat ni la metas en un archivo versionado.
-export URL_PRODUCCION='...'          # solo en la terminal, no en el historial
-pg_dump "$URL_PRODUCCION" --no-owner --no-privileges -Fc -f copia-produccion.dump
+# 1 · La URL, sin eco y sin pasar por el historial
+printf 'URL de produccion: ' >&2
+stty -echo; IFS= read -r URL_ORIGEN_SOLO_LECTURA; stty echo; echo >&2
+export URL_ORIGEN_SOLO_LECTURA
+export PGOPTIONS='-c default_transaction_read_only=on'
 
-# 2 · Una base local y aislada
-createdb copia_validacion
-pg_restore --no-owner --no-privileges -d copia_validacion copia-produccion.dump
+# 2 · Volcado con el cliente de la MISMA versión mayor que produccion (17)
+/usr/lib/postgresql/17/bin/pg_dump "$URL_ORIGEN_SOLO_LECTURA" \
+    -Fc --schema=public --schema=auth -f "$DIR/produccion.dump"
 
-export URL_COPIA='postgresql://localhost:5432/copia_validacion'
+unset PGOPTIONS URL_ORIGEN_SOLO_LECTURA   # produccion no se vuelve a tocar
+
+# 3 · La base local: la crea el rol `postgres`, no el usuario habitual
+sudo -u postgres createdb -p 5433 -O "$(id -un)" splitwise_validacion_fase2
+
+# 4 · El `public` vacío de la base nueva estorba: el volcado trae el suyo
+sudo -u postgres psql -p 5433 -d splitwise_validacion_fase2 -c 'drop schema public'
+
+# 5 · Restaurar con pg_restore 17, y recoger su código SIN que lo intercepte
+#     un `trap ERR`: por eso va dentro de un `if`, no suelto
+if /usr/lib/postgresql/17/bin/pg_restore -d "$URL_COPIA_LOCAL" --no-owner \
+       "$DIR/produccion.dump" > "$DIR/restore.log" 2>&1
+then CODIGO=0; else CODIGO=$?; fi
 ```
 
-Con Docker, en vez de `createdb`:
+Detalles que costaron un intento fallido cada uno, y que hay que respetar:
 
-```bash
-docker run -d --name copia-validacion -e POSTGRES_PASSWORD=... -p 5433:5432 postgres:15
-# y la URL apunta a localhost:5433
-```
+- **El clúster 17 tiene que existir.** Si `pg_lsclusters` no lo encuentra, el
+  procedimiento **aborta**: seguir con un puerto vacío da una URL que no conecta
+  y errores que no dicen nada.
+- **La base la crea `postgres`**, no el usuario habitual, que no tiene
+  `CREATEDB`. El usuario habitual queda como propietario con `-O`, y con eso le
+  basta para restaurar.
+- **Hay que borrar el `public` vacío** de la base recién creada antes de
+  restaurar: si no, choca con el `public` que trae el volcado.
+- **`pg_restore` va dentro de un `if`.** Con `set -Eeuo pipefail` y un
+  `trap ... ERR`, ejecutarlo suelto hace saltar el trap antes de poder leer su
+  código de salida y contar los errores del log.
+- **La consulta de roles usa `aclexplode(c.relacl)` a secas.** El
+  `coalesce(..., '{}'::aclitem[])` que se puso «por si acaso» convierte los
+  permisos por defecto en un array vacío y devuelve menos roles de los que hay.
 
-> `pg_dump` de Supabase puede no traer el esquema `auth` completo según los
-> permisos del rol. Si `auth.users` no llega, hay que volcarlo aparte con
-> `--schema auth`, o reconstruir un sustituto como el de
-> `supabase/pruebas/00_stub_supabase.sql`. **Anotarlo si ocurre**: cambia lo que
-> la validación puede demostrar sobre el trigger de alta.
+> **Lo que el volcado por esquemas NO trae, y hay que anotar**: `pg_dump` con
+> `--schema` no incluye ni las extensiones ni las **publicaciones**. La copia se
+> restaura sin `supabase_realtime`, así que la validación **no puede demostrar
+> que Realtime sobrevive a las migraciones**. La pertenencia real —`expenses`,
+> `groups` y `settlements` publicadas; ninguna tabla de viajes— se lee de
+> producción y se guarda aparte, en `realtime.txt`, para poder compararla a mano.
 
 ## 6. Proteger los datos de la copia
 

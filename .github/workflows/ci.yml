@@ -460,6 +460,21 @@ jobs:
             "postgresql://postgres:desechable@localhost:5432/desechable" \
             2>&1 | tee -a /tmp/salida-fase2.log
 
+      - name: La fotografía, con y sin group_members
+        # El fallo real que cubre: `tomar_foto()` es `language sql`, y su cuerpo
+        # se analiza al crear la función, así que una referencia literal a
+        # `public.group_members` reventaba la fotografía de ANTES de migrar,
+        # que es justo cuando la tabla todavía no existe.
+        env:
+          PGPASSWORD: desechable
+        run: |
+          set -eo pipefail
+          psql "postgresql://postgres:desechable@localhost:5432/desechable" \
+               -X -q -c 'create database foto_desechable'
+          supabase/fase2/pruebas/probar-foto.sh \
+            "postgresql://postgres:desechable@localhost:5432/foto_desechable" \
+            2>&1 | tee -a /tmp/salida-fase2.log
+
       - name: Ninguna referencia a producción fuera de la guarda
         run: |
           ARCHIVOS=$(grep -rl 'cmkzcvfjgrgxwqjimtxa' supabase/fase2 || true)
