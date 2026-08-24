@@ -38,26 +38,35 @@ fi
 
 # ── 1 · Fotografía previa ────────────────────────────────────
 paso "1 · Fotografía ANTES de migrar"
-psql "$URL" -v ON_ERROR_STOP=1 -v momento=antes -f "$AQUI/20_foto.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -v momento=antes -f "$AQUI/20_foto.sql" </dev/null
 
 # ── 2 · Las migraciones, con el mismo procedimiento que producción ──
 paso "2 · Aplicando las migraciones (aplicar-migraciones.sh)"
-"$RAIZ/supabase/aplicar-migraciones.sh" "$URL"
+# `aplicar-migraciones.sh` pide confirmación de que hay copia de seguridad.
+# Esa pregunta existe para producción; aquí la respondemos por él y dejamos
+# escrito por qué: esto YA es una copia desechable —la guarda lo ha
+# comprobado dos veces—, y su "copia de seguridad" es el propio volcado, que
+# se vuelve a restaurar en un minuto. Sin esto, la validación se quedaría
+# esperando una tecla para siempre.
+#
+# `</dev/null` en el resto de pasos para que ninguno pueda colgarse pidiendo
+# entrada por teclado.
+echo "SI" | "$RAIZ/supabase/aplicar-migraciones.sh" "$URL"
 
 # ── 3 · Fotografía posterior ─────────────────────────────────
 paso "3 · Fotografía DESPUÉS de migrar"
-psql "$URL" -v ON_ERROR_STOP=1 -v momento=despues -f "$AQUI/20_foto.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -v momento=despues -f "$AQUI/20_foto.sql" </dev/null
 
 # ── 4 · Comparación ──────────────────────────────────────────
 paso "4 · Comparando antes y después"
-psql "$URL" -v ON_ERROR_STOP=1 -f "$AQUI/30_comparar.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -f "$AQUI/30_comparar.sql" </dev/null
 
 # ── 5 · Las comprobaciones de esquema y los ataques ──────────
 paso "5 · Comprobaciones de esquema"
-psql "$URL" -v ON_ERROR_STOP=1 -f "$RAIZ/supabase/pruebas/99_comprobaciones.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -f "$RAIZ/supabase/pruebas/99_comprobaciones.sql" </dev/null
 
 paso "6 · Alta de usuario y aislamiento de un tercero"
-psql "$URL" -v ON_ERROR_STOP=1 -f "$RAIZ/supabase/pruebas/94_alta_de_usuario.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -f "$RAIZ/supabase/pruebas/94_alta_de_usuario.sql" </dev/null
 
 echo
 echo "Validación sobre la copia completada."

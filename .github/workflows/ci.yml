@@ -402,3 +402,69 @@ jobs:
             } > /tmp/comentario.md
           fi
           gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comentario.md
+
+  fase2:
+    name: Herramientas de validación sobre copia (fase 2)
+    runs-on: ubuntu-latest
+
+    # Solo tiene sentido en la rama de fase 2. No necesita ningún secreto, no
+    # toca producción y no maneja datos personales: la base es un PostgreSQL
+    # vacío y desechable que crea este mismo trabajo.
+    if: github.ref_name == 'fase-2/validacion-copia' || github.base_ref == 'estabilizacion/fase-1'
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: desechable
+          POSTGRES_DB: desechable
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+        ports: ['5432:5432']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sintaxis de todos los scripts
+        run: |
+          for s in supabase/fase2/*.sh supabase/fase2/pruebas/*.sh supabase/aplicar-migraciones.sh; do
+            bash -n "$s"
+          done
+          echo "Todos los scripts parsean"
+
+      - name: Las guardas rechazan producción sin conectarse
+        # Con un stub de psql: se comprueba que las URLs prohibidas abortan
+        # ANTES de invocar psql, no solo que aborten.
+        run: supabase/fase2/pruebas/probar-guardas.sh
+
+      - name: Instalar psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: La marca de copia, contra un PostgreSQL desechable
+        env:
+          PGPASSWORD: desechable
+        run: |
+          supabase/fase2/pruebas/probar-marca.sh \
+            "postgresql://postgres:desechable@localhost:5432/desechable"
+
+      - name: Ninguna referencia a producción fuera de la guarda
+        run: |
+          ARCHIVOS=$(grep -rl 'cmkzcvfjgrgxwqjimtxa' supabase/fase2 || true)
+          ESPERADOS="supabase/fase2/guarda-no-produccion.sh
+          supabase/fase2/pruebas/probar-guardas.sh"
+          if [ "$(echo "$ARCHIVOS" | sort | tr -d ' ')" != "$(echo "$ESPERADOS" | sort | tr -d ' ')" ]; then
+            echo "La referencia del proyecto aparece donde no debe:" >&2
+            echo "$ARCHIVOS" >&2
+            exit 1
+          fi
+          echo "La referencia solo aparece en la guarda y en su prueba"
+
+      - name: Ningún secreto ni dato personal
+        run: |
+          set -e
+          ! grep -rlE "eyJ[A-Za-z0-9_-]{20,}" supabase/fase2 docs/FASE-2-VALIDACION-COPIA.md
+          ! grep -rlE "postgres(ql)?://[^ '\"]*:[^ '\"]*@" supabase/fase2/*.sh supabase/fase2/*.sql
+          echo "Sin tokens ni cadenas de conexión con credenciales"
