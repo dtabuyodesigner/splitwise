@@ -212,6 +212,10 @@ npm test
 
 | Documento | Contenido |
 |---|---|
+| `docs/CHANGELOG.md` | Qué se publicó en cada versión, con sus SHA |
+| `docs/CIERRE-FASE-2.md` | Acta de la fase 2: migraciones y despliegue |
+| `docs/CIERRE-FASE-3.md` | Acta de la fase 3: Viajes, traslado de saldo y privilegios |
+| `docs/DISENO-TRASLADO-SALDO.md` | Por qué un traslado no es un gasto, y cómo se modela |
 | `docs/INFORME-AUDITORIA.md` | Auditoría de solo lectura: riesgos y prioridades |
 | `docs/INFORME-FINAL.md` | Qué se ha cambiado, qué se ha probado y qué queda |
 | `docs/ESTADO-INICIAL.md` | Estado congelado antes de empezar, con el SHA |

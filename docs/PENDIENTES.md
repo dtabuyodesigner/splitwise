@@ -2,10 +2,11 @@
 
 Mejoras detectadas durante la fase 1 que **no** invalidan el trabajo hecho y
 que se han dejado documentadas en lugar de abordarlas. Ninguna bloqueó el cierre
-de la fase 1 ni el de la fase 2.
+de la fase 1, ni el de la fase 2, ni el de la fase 3.
 
-La fase 2 está cerrada: producción migrada, desplegada y verificada el 25 de
-agosto de 2026. Ver [`CIERRE-FASE-2.md`](CIERRE-FASE-2.md).
+Fases cerradas: la **2** el 25 de agosto de 2026 —ver
+[`CIERRE-FASE-2.md`](CIERRE-FASE-2.md)— y la **3** el 26 de agosto de 2026 —ver
+[`CIERRE-FASE-3.md`](CIERRE-FASE-3.md)—.
 
 Orden: primero lo que más se parece a un fallo, luego lo cosmético.
 
@@ -100,6 +101,9 @@ migración.
 
 ## Peticiones de producto pendientes de la fase siguiente
 
+Quedan estas dos, **separadas y sin implementar**. Ninguna depende de la
+otra ni del traslado de saldo, que ya está resuelto.
+
 ### 0.c Mover un gasto entre grupos, como operación explícita
 
 En esta fase **el grupo de un gasto es inmutable**: al crearlo sale del grupo
@@ -120,7 +124,8 @@ grupo de destino, y que ese grupo admita el reparto del gasto).
 | Estadísticas por categoría | Se recalculan en los dos grupos | No cambian |
 | Para qué sirve | Corregir un error: se apuntó en el grupo equivocado | Arrastrar lo que se debe al grupo que se está usando |
 
-Diseño del traslado de saldo en
+Trasladar saldo **ya está hecho** (§0). Mover un gasto **no**, y sigue siendo una
+operación distinta: esta toca `expenses`, aquella no. Diseño del traslado en
 [`DISENO-TRASLADO-SALDO.md`](DISENO-TRASLADO-SALDO.md).
 
 ### 0.a Grupos de más de dos personas
@@ -140,31 +145,47 @@ comprobación de que el esquema actual no lo impide.
 También pendiente: la interfaz de invitación explícita, que no puede basarse en
 buscar usuarios porque `profiles_leer` impide enumerarlos a propósito.
 
-### 0. Trasladar saldo entre grupos
+El traslado de saldo **no lo desbloquea ni lo acerca**: solo funciona entre grupos
+de dos con la misma pareja, y lo comprueba en el servidor.
 
-Pedido por Dani. Ejemplo real: en «Eslovenia» Dani debe 225 € a Pilar, pero
-ahora usan «Ponferrada» y quiere llevarse la deuda allí. Después: «Eslovenia»
-a 0,00 €, «Ponferrada» con los 225 € a nombre de Dani, y **los gastos
-originales intactos** — no se copia ni se mueve ningún gasto.
+## Resuelto en la fase 3
 
-No puede modelarse como un gasto: duplicaría el total gastado, las
-estadísticas por categoría y los informes. Es una transferencia de deuda.
+### 0. Trasladar saldo entre grupos — **resuelto, desplegado y verificado**
 
-**Diseño completo en [`DISENO-TRASLADO-SALDO.md`](DISENO-TRASLADO-SALDO.md).**
-
-Enunciado, como función pendiente independiente:
+El enunciado que se registró como función pendiente independiente era:
 
 > **Trasladar saldo entre grupos sin convertirlo en gasto ni alterar las
 > estadísticas históricas.**
 
-Estado: **diseñado, no implementado. Ya no está bloqueado.** La condición que lo
-frenaba —que el CI de SQL y las políticas RLS estuvieran verdes— se cumplió con
-el despliegue del 25 de agosto de 2026 (ver [`CIERRE-FASE-2.md`](CIERRE-FASE-2.md)).
-`group_members` está en producción con las seis membresías, que es justo lo que
-hace comprobable la condición «solo grupos donde estén las dos personas».
+Está cumplido.
 
-Es una función por sí sola: no depende de los grupos multipersona (§0.a) ni de
-mover gastos entre grupos (§0.c), y no debería mezclarse con ellos.
+| | |
+|---|---|
+| Estado | **Resuelto, desplegado y verificado en producción** |
+| Servidor | `0007_traslado_de_saldo.sql`, aplicada el 25 de agosto de 2026 y validada con 19 comprobaciones |
+| Cliente | v17, servida por GitHub Pages desde `main` `88011b2` |
+| Ejecutado de verdad | 26 de agosto de 2026 |
+| Diseño | [`DISENO-TRASLADO-SALDO.md`](DISENO-TRASLADO-SALDO.md) |
+| Acta | [`CIERRE-FASE-3.md`](CIERRE-FASE-3.md) |
+
+El caso real que lo pedía —«en Slovenia Dani debe 225 € a Pilar, pero ahora usan
+otro grupo y quiere llevarse la deuda allí»— se ha ejecutado sobre producción:
+
+- Slovenia quedó a **0,00 €**;
+- Bierzo & Asturias recibió la deuda, **156,09 €** a nombre de Dani;
+- **ningún gasto se copió ni se movió.**
+
+Se cumple la condición que lo definía: **no es un gasto por construcción.** Un
+traslado son dos liquidaciones vinculadas a una fila de `balance_transfers`;
+`expenses` no se toca, así que ni el total gastado ni las estadísticas por
+categoría lo ven. El total gastado de Bierzo sí cambió ese día, pero **no por el
+traslado**: fue al eliminar el apunte manual «Deuda Dani225,60», el apaño que el
+traslado viene a sustituir. Está contado en [`CIERRE-FASE-3.md`](CIERRE-FASE-3.md).
+
+**No confundir esto con los dos pendientes que siguen abiertos**, §0.a y §0.c:
+son funciones distintas, no dependían de esta y siguen sin implementar.
+
+---
 
 ---
 
