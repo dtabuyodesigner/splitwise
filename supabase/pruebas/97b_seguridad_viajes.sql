@@ -14,7 +14,11 @@ begin;
 create temporary table recuentos_antes on commit drop as
 select (select count(*) from public.viajes)       as viajes,
        (select count(*) from public.viaje_diario) as diario,
-       (select count(*) from public.viaje_fotos)  as fotos;
+       (select count(*) from public.viaje_fotos)  as fotos,
+       (select count(*) from public.groups)       as grupos,
+       (select count(*) from public.expenses)     as gastos,
+       (select count(*) from public.settlements)  as liquidaciones,
+       (select count(*) from public.group_members) as membresias;
 
 -- La leen también las secciones que suplantan a una cuenta.
 grant select on recuentos_antes to authenticated;
@@ -268,14 +272,22 @@ begin
     end if;
     raise notice '[V16] ok — viajes intacta: % viajes, % días de diario, % fotos', v, d, f;
 
+    -- Se compara con lo que HABÍA al empezar, no con un número escrito a mano.
+    -- La versión anterior exigía `expenses = 53`, y eso hizo fallar la
+    -- validación de 0006 en producción por un gasto que Dani había apuntado
+    -- ese mismo día: un recuento congelado convierte el uso normal de la
+    -- aplicación en una alarma, y peor aún, invita a subir el número hasta
+    -- que la comprobación deja de comprobar nada.
     select count(*) into g from public.groups;
     select count(*) into e from public.expenses;
     select count(*) into s from public.settlements;
     select count(*) into m from public.group_members;
-    if (g,e,s,m) <> (3,53,1,6) then
-        raise exception '[V17] FALLA — Splitwise ha cambiado: %/%/%/%', g, e, s, m;
+    if (g,e,s,m) is distinct from
+       (select (grupos, gastos, liquidaciones, membresias) from recuentos_antes) then
+        raise exception '[V17] FALLA — Splitwise ha cambiado durante la prueba: %/%/%/%', g, e, s, m;
     end if;
-    raise notice '[V17] ok — Splitwise intacto: 3 grupos, 53 gastos, 1 liquidación, 6 membresías';
+    raise notice '[V17] ok — Splitwise no ha cambiado durante la prueba: % grupos, % gastos, % liquidaciones, % membresías',
+                 g, e, s, m;
     -- El alta del tercero SÍ crea su perfil: eso es correcto y no da acceso.
 
     select count(*) into g from pg_policies where schemaname='public'
@@ -291,6 +303,43 @@ begin
     end if;
     raise notice '[V18] ok — las 19 políticas de Splitwise siguen, y ninguna abierta';
 
+    -- ── V17b · un gasto nuevo legítimo no rompe ningún invariante ──
+    -- Es exactamente lo que pasó en producción: la pareja siguió usando la
+    -- aplicación mientras se migraba. Debe ser indistinguible de lo normal.
+    declare
+        grupo  uuid;
+        quien  uuid;
+        rotos  bigint;
+    begin
+        select m.group_id, m.user_id into grupo, quien
+          from public.group_members m limit 1;
+        insert into public.expenses (group_id, paid_by, amount, description,
+                                     category, payer_share, spent_on, client_id)
+        values (grupo, quien, 12.34, 'gasto legitimo de prueba', 'otros', 0.5,
+                current_date, 'invariantes-' || gen_random_uuid()::text);
+
+        select count(*) into rotos from public.expenses e
+         where not exists (select 1 from public.group_members mm
+                            where mm.group_id = e.group_id and mm.user_id = e.paid_by);
+        if rotos <> 0 then
+            raise exception '[V17b] FALLA — el gasto nuevo ha roto la pertenencia';
+        end if;
+        select count(*) into rotos from (
+            select client_id from public.expenses
+             where client_id is not null group by client_id having count(*) > 1) d;
+        if rotos <> 0 then
+            raise exception '[V17b] FALLA — el gasto nuevo ha duplicado un client_id';
+        end if;
+        if (select count(*) from public.expenses) <>
+           (select gastos + 1 from recuentos_antes) then
+            raise exception '[V17b] FALLA — el gasto nuevo no se ha contado una sola vez';
+        end if;
+        raise notice '[V17b] ok — un gasto nuevo legítimo no rompe ningún invariante';
+
+        -- Se deshace para que V17 siga comparando lo mismo.
+        delete from public.expenses where description = 'gasto legitimo de prueba';
+    end;
+
     -- Viajes no se publica en Realtime: la aplicación no lo usa.
     select count(*) into g from pg_publication_tables
      where schemaname = 'public' and tablename in ('viajes','viaje_diario','viaje_fotos');
@@ -302,4 +351,4 @@ end $$;
 
 rollback;
 
-select 'Seguridad de viajes: 20 aserciones superadas' as resultado;
+select 'Seguridad de viajes: 21 aserciones superadas' as resultado;
