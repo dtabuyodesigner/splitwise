@@ -17,6 +17,12 @@ export const TIPO = {
     INSERTAR: 'insertar',
     ACTUALIZAR: 'actualizar',
     BORRAR: 'borrar',
+    // Una llamada a una función del servidor. La usa el traslado de saldo,
+    // que no es un insert: son dos liquidaciones que tienen que entrar o no
+    // entrar juntas, y eso solo lo puede garantizar una transacción del
+    // servidor. Su `fila` son los argumentos, con la clave de idempotencia
+    // dentro: por eso reintentarla nunca traslada dos veces.
+    LLAMAR: 'llamar',
 };
 
 export const MAX_INTENTOS = 8;
@@ -77,6 +83,24 @@ export class ColaOffline {
 
     guardar() {
         this.almacen.escribir('cola', this.tareas);
+    }
+
+    /**
+     * Encola una llamada a una función del servidor.
+     * Si ya hay una con la misma clave de idempotencia, no se añade otra:
+     * un doble clic no puede convertirse en dos traslados.
+     */
+    encolarLlamada(funcion, argumentos) {
+        const clave = argumentos && argumentos.p_idempotency_key;
+        if (clave) {
+            const ya = this.tareas.some(
+                (t) => t.tipo === TIPO.LLAMAR && t.tabla === funcion
+                    && t.fila && t.fila.p_idempotency_key === clave,
+            );
+            if (ya) return false;
+        }
+        this.encolar(TIPO.LLAMAR, funcion, argumentos);
+        return true;
     }
 
     encolar(tipo, tabla, fila) {
@@ -264,6 +288,18 @@ export async function ejecutarTarea(sb, tarea, { online = true } = {}) {
                 };
             }
             return { ok: true };
+        }
+
+        if (tarea.tipo === TIPO.LLAMAR) {
+            const { data, error } = await sb.rpc(tarea.tabla, tarea.fila);
+            if (error) {
+                const c = clasificarError(error, { online });
+                // Un choque de unicidad sobre la clave de idempotencia
+                // significa que la llamada ya entró: la tarea está cumplida.
+                if (c.clase === CLASE.DUPLICADO) return { ok: true, duplicado: true };
+                return { ok: false, clase: c.clase, mensaje: c.mensaje };
+            }
+            return { ok: true, datos: data };
         }
 
         if (tarea.tipo === TIPO.BORRAR) {
