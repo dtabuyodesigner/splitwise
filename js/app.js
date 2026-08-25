@@ -23,7 +23,11 @@ import {
 } from './almacen.js';
 import { ColaOffline, TIPO } from './offline-queue.js';
 import { cargarTodo, crearGrupo as crearGrupoRemoto } from './supabase-data.js';
-import { crearApunte, editarApunte, borrarApunte } from './mutaciones.js';
+import { crearApunte, editarApunte, borrarApunte, trasladarSaldo, deshacerTraslado } from './mutaciones.js';
+import {
+    argumentosDeTraslado, destinosValidos, deudaDelGrupo, esMovimientoDeTraslado,
+    resumenDeTraslado, tituloDeTraslado, validarTraslado,
+} from './traslados.js';
 import { prepararFilaGasto } from './gastos.js';
 import { analizarCSV, construirCSV } from './csv.js';
 import { interpretarDictado } from './voice.js';
@@ -47,6 +51,8 @@ const estado = {
     grupoActivo: null,
     gastos: [],
     liquidaciones: [],
+    traslados: [],
+    trasladoEnCurso: null,   // clave de idempotencia de la acción en marcha
     almacen: null,
     cola: null,
     truncado: false,
@@ -130,6 +136,7 @@ function guardarCache() {
         membresias: estado.membresias,
         gastos: estado.gastos.filter((g) => !g.pendiente),
         liquidaciones: estado.liquidaciones.filter((l) => !l.pendiente),
+        traslados: estado.traslados,
     });
 }
 
@@ -142,6 +149,7 @@ function leerCache() {
     estado.membresias = datos.membresias ?? null;
     estado.gastos = datos.gastos || [];
     estado.liquidaciones = datos.liquidaciones || [];
+    estado.traslados = datos.traslados || [];
     repartirPerfiles();
     elegirGrupoInicial();
     return true;
@@ -368,6 +376,7 @@ async function traerDatos() {
     estado.membresias = datos.membresias;
     estado.gastos = datos.gastos;
     estado.liquidaciones = datos.liquidaciones;
+    estado.traslados = datos.traslados || estado.traslados;
     estado.truncado = datos.truncado;
 
     repartirPerfiles();
@@ -451,6 +460,16 @@ function pintar() {
     pintarNovedades();
     const tieneGrupo = Boolean(grupo(estado.grupoActivo));
     $('utiles').classList.toggle('oculto', !tieneGrupo);
+
+    // «Trasladar saldo» solo aparece cuando de verdad se puede: hay deuda en
+    // este grupo Y existe otro grupo con las mismas dos personas. Enseñar el
+    // botón para que luego el servidor lo rechace no ayuda a nadie.
+    const sePuedeTrasladar = tieneGrupo
+        && Boolean(deudaDelGrupo(estado.grupoActivo, contextoTraslado()))
+        && destinosValidos(estado.grupoActivo, {
+            ...contextoTraslado(), grupos: estado.grupos,
+        }).length > 0;
+    $('botonTrasladar').classList.toggle('oculto', !sePuedeTrasladar);
     $('cajaFiltro').classList.toggle('oculto', !tieneGrupo || !gastosDelGrupo().length);
 }
 
@@ -736,6 +755,34 @@ function pintarLista() {
         } else {
             const de = perfil(m.from_user);
             const a = perfil(m.to_user);
+
+            // Un traslado NO es un pago. En el destino la deuda se crea, así
+            // que pintarlo como «Pago de X a Y» diría justo lo contrario de
+            // lo que ha pasado.
+            if (esMovimientoDeTraslado(m)) {
+                const t = estado.traslados.find((x) => String(x.id) === String(m.transfer_id));
+                const deshecho = Boolean(t && t.revertido_en);
+                const titulo = tituloDeTraslado(m, {
+                    nombreOrigen: t ? nombreDeGrupo(t.grupo_origen) : null,
+                    nombreDestino: t ? nombreDeGrupo(t.grupo_destino) : null,
+                });
+                html +=
+                    '<button class="gasto gasto--liquidacion gasto--traslado' +
+                    (deshecho ? ' gasto--traslado-deshecho' : '') + clasesEstado + '"' +
+                    ' data-color="' + escapar(de.color) + '"' +
+                    ' data-traslado="' + escapar(m.transfer_id) + '">' +
+                    '<span class="gasto__icono" aria-hidden="true">🔀</span>' +
+                    '<span class="gasto__cuerpo">' +
+                    '<span class="gasto__concepto">' + escapar(titulo) + '</span>' +
+                    '<span class="gasto__meta">' +
+                    escapar(deshecho ? 'Deshecho' : 'No cuenta como gasto') +
+                    escapar(etiquetaEstadoApunte(m)) + '</span>' +
+                    '</span>' +
+                    '<span class="gasto__importe cifra">' + formatoDinero(m.amount) + '</span>' +
+                    '</button>';
+                continue;
+            }
+
             html +=
                 '<button class="gasto gasto--liquidacion' + clasesEstado + '"' +
                 ' data-color="' + escapar(de.color) + '"' +
@@ -760,6 +807,10 @@ function pintarLista() {
 
     lista.querySelectorAll('[data-liquidacion]').forEach((boton) => {
         boton.addEventListener('click', () => abrirHojaLiquidarParaEditar(boton.dataset.liquidacion));
+    });
+
+    lista.querySelectorAll('[data-traslado]').forEach((boton) => {
+        boton.addEventListener('click', () => deshacerTrasladoDeMovimiento(boton.dataset.traslado));
     });
 }
 
@@ -1860,6 +1911,160 @@ async function borrarGasto() {
 // ------------------------------------------------------------
 //  Hoja de liquidación
 // ------------------------------------------------------------
+// ── Trasladar saldo ─────────────────────────────────────────
+//
+// Mueve una deuda de un grupo a otro sin crear ningún gasto. Todo lo que se
+// enseña aquí es una previsualización: el servidor recalcula el saldo y no
+// acepta el importe que mande el navegador.
+
+function contextoTraslado() {
+    return {
+        gastos: estado.gastos,
+        liquidaciones: estado.liquidaciones,
+        membresias: estado.membresias,
+        perfiles: estado.perfiles,
+        yoId: estado.yo?.id,
+    };
+}
+
+function nombreDeGrupo(id) {
+    const g = grupo(id);
+    return g ? g.name : 'otro grupo';
+}
+
+function abrirHojaTraslado() {
+    if (!grupo(estado.grupoActivo)) { recado('Crea primero un grupo'); return; }
+    if (!grupoAdmite('saldar')) return;
+
+    const deuda = deudaDelGrupo(estado.grupoActivo, contextoTraslado());
+    if (!deuda) {
+        recado('Este grupo no tiene ninguna deuda que trasladar');
+        return;
+    }
+
+    const destinos = destinosValidos(estado.grupoActivo, {
+        ...contextoTraslado(), grupos: estado.grupos,
+    });
+    if (!destinos.length) {
+        recado('No hay ningún otro grupo con las mismas dos personas');
+        return;
+    }
+
+    estado.trasladoEnCurso = null;
+    mostrarAviso($('avisoTraslado'), '');
+    $('confirmacionTraslado').classList.add('oculto');
+    $('tituloTraslado').textContent = 'Trasladar saldo · ' + grupo(estado.grupoActivo).name;
+
+    $('resumenTraslado').innerHTML =
+        '<strong>' + formatoDinero(deuda.euros) + '</strong>' +
+        escapar(perfil(deuda.deudor).display_name) + ' debe a ' +
+        escapar(perfil(deuda.acreedor).display_name) + '.';
+
+    $('entradaDestinoTraslado').innerHTML = destinos
+        .map((g) => '<option value="' + escapar(g.id) + '">' + escapar(g.name) + '</option>')
+        .join('');
+
+    $('entradaImporteTraslado').value = deuda.euros.toFixed(2).replace('.', ',');
+    $('pistaTraslado').textContent =
+        'Déjalo tal cual para trasladar la deuda entera, o escribe menos para llevarte solo una parte.';
+
+    $('botonGuardarTraslado').disabled = false;
+    $('botonGuardarTraslado').textContent = 'Trasladar';
+    $('veloTraslado').classList.remove('oculto');
+}
+
+function cerrarHojaTraslado() {
+    $('veloTraslado').classList.add('oculto');
+    estado.trasladoEnCurso = null;
+}
+
+/** Primer toque: enseña lo que va a pasar. Segundo: lo hace. */
+async function confirmarOTrasladar() {
+    const deuda = deudaDelGrupo(estado.grupoActivo, contextoTraslado());
+    const destinoId = $('entradaDestinoTraslado').value;
+    const v = validarTraslado({
+        origenId: estado.grupoActivo,
+        destinoId,
+        importe: $('entradaImporteTraslado').value,
+        deuda,
+    });
+
+    if (!v.ok) {
+        mostrarAviso($('avisoTraslado'), v.motivo);
+        $('confirmacionTraslado').classList.add('oculto');
+        return;
+    }
+
+    // Sin confirmar todavía: se enseña el resultado esperado y se pide otro toque.
+    if (!estado.trasladoEnCurso) {
+        const r = resumenDeTraslado({
+            deuda,
+            importe: v.importe,
+            nombreOrigen: nombreDeGrupo(estado.grupoActivo),
+            nombreDestino: nombreDeGrupo(destinoId),
+            nombre: (id) => perfil(id).display_name,
+        });
+        $('confirmacionTraslado').innerHTML =
+            '<strong>Se van a trasladar ' + formatoDinero(r.cuanto) + '</strong>' +
+            escapar(r.nombreOrigen) + ' quedará ' +
+            (r.total ? 'saldado' : 'con ' + formatoDinero(r.restante) + ' pendientes') +
+            ', y esa deuda pasará a ' + escapar(r.nombreDestino) + '. ' +
+            'No se crea ningún gasto: los totales y las estadísticas no cambian.';
+        $('confirmacionTraslado').classList.remove('oculto');
+        $('botonGuardarTraslado').textContent = 'Confirmar traslado';
+        // La clave se genera AQUÍ, una sola vez: si hay que reintentar, se
+        // reutiliza, y por eso un doble toque no puede trasladar dos veces.
+        estado.trasladoEnCurso = crypto.randomUUID();
+        return;
+    }
+
+    $('botonGuardarTraslado').disabled = true;
+    mostrarAviso($('avisoTraslado'), '');
+
+    const argumentos = argumentosDeTraslado({
+        origenId: estado.grupoActivo,
+        destinoId,
+        importe: v.importe,
+        clave: estado.trasladoEnCurso,
+    });
+
+    try {
+        const r = await trasladarSaldo(sb, {
+            argumentos, cola: estado.cola, online: online(),
+        });
+
+        if (r.estado === 'servidor' || r.estado === 'duplicado') {
+            cerrarHojaTraslado();
+            recado('Saldo trasladado a ' + nombreDeGrupo(destinoId));
+            await recargar();
+            return;
+        }
+        if (r.estado === 'pendiente') {
+            cerrarHojaTraslado();
+            recado('Traslado pendiente de enviar');
+            pintarEstado();
+            return;
+        }
+        mostrarAviso($('avisoTraslado'), r.mensaje || mensajeResultado(r));
+        $('botonGuardarTraslado').disabled = false;
+    } catch (e) {
+        mostrarAviso($('avisoTraslado'), traducirError(e));
+        $('botonGuardarTraslado').disabled = false;
+    }
+}
+
+/** Deshacer: el servidor compensa, no borra. */
+async function deshacerTrasladoDeMovimiento(transferId) {
+    if (!confirm('¿Deshacer este traslado? La deuda volverá al grupo de origen.')) return;
+    const r = await deshacerTraslado(sb, { transferId, online: online() });
+    if (r.estado === 'servidor') {
+        recado('Traslado deshecho');
+        await recargar();
+    } else {
+        recado(r.mensaje || 'No se ha podido deshacer');
+    }
+}
+
 function abrirHojaLiquidar() {
     if (!grupo(estado.grupoActivo)) {
         recado('Crea primero un grupo');
@@ -2089,6 +2294,21 @@ function conectarEventos() {
     $('botonSalir').addEventListener('click', salir);
     $('botonNuevoGasto').addEventListener('click', () => abrirHojaGasto(null));
     $('botonLiquidar').addEventListener('click', abrirHojaLiquidar);
+    $('botonTrasladar').addEventListener('click', abrirHojaTraslado);
+    $('botonGuardarTraslado').addEventListener('click', confirmarOTrasladar);
+    $('botonCancelarTraslado').addEventListener('click', cerrarHojaTraslado);
+    $('entradaDestinoTraslado').addEventListener('change', () => {
+        // Cambiar de destino invalida la confirmación anterior: hay que
+        // volver a mirar lo que va a pasar antes de aceptarlo.
+        estado.trasladoEnCurso = null;
+        $('confirmacionTraslado').classList.add('oculto');
+        $('botonGuardarTraslado').textContent = 'Trasladar';
+    });
+    $('entradaImporteTraslado').addEventListener('input', () => {
+        estado.trasladoEnCurso = null;
+        $('confirmacionTraslado').classList.add('oculto');
+        $('botonGuardarTraslado').textContent = 'Trasladar';
+    });
     $('botonStats').addEventListener('click', abrirHojaStats);
     $('botonCerrarStats').addEventListener('click', () => $('veloStats').classList.add('oculto'));
 

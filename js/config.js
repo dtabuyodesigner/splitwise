@@ -16,7 +16,7 @@ export const CURRENCY = 'EUR';
 
 // VERSION_APP tiene que coincidir con VERSION en sw.js y con "version" en
 // package.json. `npm run verificar-version` lo comprueba, y CI lo ejecuta.
-export const VERSION_APP = 'v16';
+export const VERSION_APP = 'v17';
 
 export const GOOGLE_ACTIVO = false;
 export const TOPE_FIEL = 300;

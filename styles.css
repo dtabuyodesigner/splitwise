@@ -1058,3 +1058,40 @@ button { cursor: pointer; border: none; background: none; }
         transition-duration: .001ms !important;
     }
 }
+
+/* ── Traslado de saldo ─────────────────────────────────────────
+   Un traslado NO es un pago: mueve la deuda de sitio, no la salda.
+   Por eso su movimiento se distingue del de una liquidación normal. */
+.gasto--traslado .gasto__icono { filter: hue-rotate(190deg); }
+
+.gasto--traslado .gasto__concepto::after {
+    content: 'traslado';
+    margin-left: .5rem;
+    padding: .05rem .4rem;
+    border-radius: 999px;
+    font-size: .62rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    background: var(--fondo-suave, rgba(120, 140, 200, .18));
+    color: var(--texto-suave, inherit);
+}
+
+.gasto--traslado-deshecho .gasto__cuerpo { opacity: .65; }
+
+.hoja__pista {
+    margin: -.35rem 0 .6rem;
+    font-size: .78rem;
+    opacity: .75;
+}
+
+.hoja__confirmacion {
+    margin: .2rem 0 .9rem;
+    padding: .7rem .8rem;
+    border-radius: .7rem;
+    background: var(--fondo-suave, rgba(120, 140, 200, .14));
+    font-size: .85rem;
+    line-height: 1.45;
+}
+
+.hoja__confirmacion strong { display: block; margin-bottom: .2rem; }

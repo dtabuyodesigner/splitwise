@@ -82,14 +82,31 @@ export async function cargarTodo(sb, { online = true } = {}) {
         traerMembresias(sb),
     ]).catch((e) => { throw enriquecer(e, online); });
 
+    // Los traslados van aparte y toleran que la tabla no exista: la
+    // aplicación tiene que seguir funcionando en una base donde 0007
+    // todavía no se haya aplicado, igual que hace `traerMembresias`.
+    const traslados = await traerTraslados(sb);
+
     return {
         perfiles: perfiles.filas,
         grupos: grupos.filas,
         gastos: gastos.filas,
         liquidaciones: liquidaciones.filas,
         membresias,
+        traslados,
         truncado: gastos.truncado || liquidaciones.truncado,
     };
+}
+
+/** Traslados de saldo, o `[]` si `0007` no está aplicada todavía. */
+export async function traerTraslados(sb) {
+    try {
+        const { data, error } = await sb.from('balance_transfers').select('*');
+        if (error) return [];
+        return data || [];
+    } catch {
+        return [];
+    }
 }
 
 /**
