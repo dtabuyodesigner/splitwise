@@ -113,6 +113,14 @@ alter table public.viajes       enable row level security;
 alter table public.viaje_diario enable row level security;
 alter table public.viaje_fotos  enable row level security;
 
+-- Igual que hace 0004 con las tablas de gastos: que nada pase por GRANT.
+-- Importa aunque no haya ninguna política `to anon`, porque TRUNCATE NO pasa
+-- por RLS, y los privilegios por defecto de Supabase suelen dejar ALL a anon
+-- sobre todo lo de `public`.
+revoke all on public.viajes       from anon;
+revoke all on public.viaje_diario from anon;
+revoke all on public.viaje_fotos  from anon;
+
 drop policy if exists viajes_leer      on public.viajes;
 drop policy if exists viajes_crear     on public.viajes;
 drop policy if exists viajes_modificar on public.viajes;
@@ -165,9 +173,11 @@ create policy fotos_borrar on public.viaje_fotos
 -- enumerar usuarios.
 -- Solo SELECT: la política de abajo lo acota a la fila propia. Sin INSERT,
 -- UPDATE ni DELETE, para que nadie pueda concederse acceso desde el cliente.
-grant select on public.viajes_acceso to authenticated;
-revoke insert, update, delete on public.viajes_acceso from authenticated;
+-- `revoke all` y no una lista: enumerar deja fuera TRUNCATE, que ignora la
+-- RLS, y un truncate dejaría a las dos personas legítimas sin acceso.
+revoke all on public.viajes_acceso from authenticated;
 revoke all on public.viajes_acceso from anon;
+grant select on public.viajes_acceso to authenticated;
 
 drop policy if exists viajes_acceso_ver_el_mio on public.viajes_acceso;
 create policy viajes_acceso_ver_el_mio on public.viajes_acceso
@@ -192,32 +202,29 @@ begin
     end if;
 
     select count(*) into perfiles from public.profiles;
-    if perfiles = 0 then
-        raise notice 'Instalación limpia: no hay perfiles, no se concede acceso a nadie';
+    if perfiles < 2 then
+        raise notice 'Hay % perfil(es): no se concede acceso a nadie todavía', perfiles;
         return;
     end if;
 
-    if perfiles <> 2 then
-        raise exception
-            'Se esperaban exactamente 2 perfiles para el backfill de viajes, hay %', perfiles
-            using hint = 'Decide a mano quién debe entrar en viajes e inserta en public.viajes_acceso.',
-                  errcode = 'data_exception';
-    end if;
-
-    select id into dani  from public.profiles where color = 'laurel';
-    select id into pilar from public.profiles where color = 'buganvilla';
+    -- Las DOS MÁS ANTIGUAS, no «exactamente dos». El registro está abierto:
+    -- si un desconocido se hubiera registrado antes de aplicar esto, exigir
+    -- que hubiera exactamente dos perfiles abortaría la migración entera y
+    -- dejaría en pie las doce políticas abiertas — incluida para él. El
+    -- agujero que se viene a cerrar impediría cerrarlo.
+    select id into dani  from public.profiles order by created_at, id limit 1;
+    select id into pilar from public.profiles order by created_at, id offset 1 limit 1;
 
     if dani is null or pilar is null or dani = pilar then
-        raise exception 'No se han podido resolver los dos perfiles por color (laurel / buganvilla)'
-            using hint = 'Sin esa correspondencia no se concede acceso a nadie.',
-                  errcode = 'data_exception';
+        raise exception 'No se han podido resolver los dos perfiles más antiguos'
+            using errcode = 'data_exception';
     end if;
 
-    -- Segunda vía independiente: el perfil más antiguo debe ser el de laurel.
-    select id into primera from public.profiles order by created_at, id limit 1;
-    if primera <> dani then
-        raise exception 'El color y la antigüedad de los perfiles no concuerdan'
-            using hint = 'Comprueba a mano quién es quién antes de conceder acceso.',
+    -- Y se contrasta con el color, la misma segunda vía que usó 0002b.
+    if (select color from public.profiles where id = dani)  <> 'laurel'
+       or (select color from public.profiles where id = pilar) <> 'buganvilla' then
+        raise exception 'La antigüedad y el color de los dos perfiles más antiguos no concuerdan'
+            using hint = 'Decide a mano quién entra en viajes e inserta en public.viajes_acceso.',
                   errcode = 'data_exception';
     end if;
 
@@ -238,8 +245,10 @@ $backfill$;
 -- ── 7 · Comprobación final ───────────────────────────────────
 do $final$
 declare
-    abiertas integer;
-    total    integer;
+    abiertas     integer;
+    total        integer;
+    con_acceso   integer;
+    hay_perfiles integer;
 begin
     select count(*) into abiertas from pg_policies
      where schemaname = 'public'
@@ -261,7 +270,20 @@ begin
         raise exception 'viajes_acceso no tiene RLS activa';
     end if;
 
-    raise notice 'Viajes cerrado: 12 políticas, ninguna abierta, acceso por pertenencia explícita';
+    -- Cerrar sin que nadie tenga acceso deja la aplicación inservible para
+    -- todo el mundo, y sin esta comprobación se anunciaría igual como éxito.
+    select count(*) into con_acceso from public.viajes_acceso;
+    select count(*) into hay_perfiles from public.profiles;
+    if hay_perfiles >= 2 and con_acceso = 0 then
+        raise exception
+            'Viajes ha quedado cerrado y NADIE tiene acceso, habiendo % perfiles', hay_perfiles;
+    end if;
+
+    if con_acceso = 0 then
+        raise notice 'Viajes cerrado: 12 políticas, ninguna abierta. Todavía SIN nadie con acceso (instalación nueva)';
+    else
+        raise notice 'Viajes cerrado: 12 políticas, ninguna abierta, % persona(s) con acceso', con_acceso;
+    end if;
 end
 $final$;
 

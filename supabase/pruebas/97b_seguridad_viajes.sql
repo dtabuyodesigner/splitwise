@@ -88,10 +88,15 @@ begin
     if not coalesce(ok, false) then
         raise exception '[V05] FALLA — puede_viajes() no es SECURITY DEFINER con search_path fijo';
     end if;
-    if exists (select 1 from information_schema.role_routine_grants
-                where routine_schema='public' and routine_name='puede_viajes'
-                  and grantee in ('PUBLIC','anon')) then
-        raise exception '[V05] FALLA — puede_viajes() es ejecutable por PUBLIC o anon';
+    -- `information_schema.role_routine_grants` OMITE por definición lo
+    -- concedido a PUBLIC, así que buscar 'PUBLIC' ahí no casa nunca: la mitad
+    -- de esta comprobación estaba muerta y habría seguido en verde aunque
+    -- alguien borrara el `revoke ... from public` de 0006.
+    if has_function_privilege('public', 'public.puede_viajes()', 'execute') then
+        raise exception '[V05] FALLA — puede_viajes() es ejecutable por PUBLIC';
+    end if;
+    if has_function_privilege('anon', 'public.puede_viajes()', 'execute') then
+        raise exception '[V05] FALLA — puede_viajes() es ejecutable por anon';
     end if;
     raise notice '[V05] ok — puede_viajes() es SECURITY DEFINER, search_path fijo, sin PUBLIC ni anon';
 end $$;
@@ -115,7 +120,9 @@ begin
     if (v,d,f) is distinct from (select (viajes,diario,fotos) from recuentos_antes) then
         raise exception '[V06] FALLA — Dani ve %/%/%, distinto de lo que había', v, d, f;
     end if;
-    if v = 0 then raise exception '[V06] FALLA — el escenario no tiene viajes: la prueba no valdría'; end if;
+    if v = 0 or d = 0 or f = 0 then
+        raise exception '[V06] FALLA — el escenario está vacío (%/%/%): las pruebas de ataque no valdrían', v, d, f;
+    end if;
     raise notice '[V06] ok — Dani sigue viendo todos los viajes, el diario y las fotos (%/%/%)', v, d, f;
 
     insert into public.viajes (id, nombre, dias) values ('prueba-dani', 'Prueba', '[]'::jsonb);
@@ -184,28 +191,53 @@ begin
     begin
         insert into public.viajes_acceso (user_id)
         values ('cccccccc-cccc-cccc-cccc-cccccccccccc');
-    exception when others then null;
+        raise exception '[V12] FALLA — el INSERT en viajes_acceso NO fue rechazado';
+    exception
+        when insufficient_privilege then null;
+        when others then
+            if sqlstate = 'P0001' then raise; end if;
+            raise exception '[V12] FALLA — falló por % (%), no por permisos', sqlerrm, sqlstate;
     end;
     if public.puede_viajes() then
         raise exception '[V12] FALLA — el tercero se ha autoconcedido acceso a viajes';
     end if;
     raise notice '[V12] ok — ATAQUE: el tercero NO puede autoconcederse acceso';
 
-    -- ATAQUE: escribir un viaje.
+    -- ATAQUE: escribir. Antes esto iba en `exception when others then null`
+    -- y se imprimia [V13] ok pasara lo que pasara: si la RLS estuviera rota y
+    -- los tres INSERT prosperasen, la aserción habria dicho «ok» igual.
+    -- Ahora se exige el error concreto de permisos.
     begin
         insert into public.viajes (id, nombre, dias) values ('intruso', 'Intruso', '[]'::jsonb);
-    exception when others then null;
+        raise exception '[V13] FALLA — el tercero HA INSERTADO un viaje';
+    exception
+        when insufficient_privilege then null;
+        when others then
+            if sqlstate = 'P0001' then raise; end if;
+            raise exception '[V13] FALLA — el INSERT de viajes falló por % (%), no por permisos',
+                            sqlerrm, sqlstate;
     end;
-    -- ATAQUE: escribir una foto y un día de diario.
     begin
-        insert into public.viaje_fotos (id, viaje, dia, datos) values ('intruso-f', 'v1', 1, 'x');
-    exception when others then null;
+        insert into public.viaje_fotos (id, viaje, dia, datos) values ('intruso-f', 'viaje-1', 1, 'x');
+        raise exception '[V13] FALLA — el tercero HA INSERTADO una foto';
+    exception
+        when insufficient_privilege then null;
+        when others then
+            if sqlstate = 'P0001' then raise; end if;
+            raise exception '[V13] FALLA — el INSERT de fotos falló por % (%), no por permisos',
+                            sqlerrm, sqlstate;
     end;
     begin
         insert into public.viaje_diario (viaje) values ('intruso-d');
-    exception when others then null;
+        raise exception '[V13] FALLA — el tercero HA INSERTADO un día de diario';
+    exception
+        when insufficient_privilege then null;
+        when others then
+            if sqlstate = 'P0001' then raise; end if;
+            raise exception '[V13] FALLA — el INSERT del diario falló por % (%), no por permisos',
+                            sqlerrm, sqlstate;
     end;
-    raise notice '[V13] ok — ATAQUE: los INSERT del tercero no prosperan';
+    raise notice '[V13] ok — ATAQUE: los tres INSERT del tercero son rechazados por permisos';
 
     -- ATAQUE: modificar y borrar lo ajeno. PostgREST no da error cuando
     -- afectan a cero filas, así que se cuenta lo afectado.
@@ -261,7 +293,7 @@ begin
 
     -- Viajes no se publica en Realtime: la aplicación no lo usa.
     select count(*) into g from pg_publication_tables
-     where tablename in ('viajes','viaje_diario','viaje_fotos');
+     where schemaname = 'public' and tablename in ('viajes','viaje_diario','viaje_fotos');
     if g <> 0 then
         raise exception '[V19] FALLA — se han publicado % tabla(s) de viajes en Realtime', g;
     end if;
@@ -270,4 +302,4 @@ end $$;
 
 rollback;
 
-select 'Seguridad de viajes: 19 aserciones superadas' as resultado;
+select 'Seguridad de viajes: 20 aserciones superadas' as resultado;
