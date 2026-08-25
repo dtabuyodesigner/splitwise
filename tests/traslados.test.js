@@ -14,7 +14,7 @@ import {
     esMovimientoDeTraslado, resumenDeTraslado, tituloDeTraslado, validarTraslado,
 } from '../js/traslados.js';
 import { ColaOffline, TIPO, ejecutarTarea } from '../js/offline-queue.js';
-import { trasladarSaldo } from '../js/mutaciones.js';
+import { deshacerTraslado, trasladarSaldo } from '../js/mutaciones.js';
 
 const YO = 'u-yo';
 const OTRO = 'u-otro';
@@ -62,8 +62,30 @@ test('deudaDelGrupo identifica deudor y acreedor, no solo el signo', () => {
     assert.equal(d.acreedor, OTRO);
 });
 
-test('deudaDelGrupo devuelve null si el grupo está saldado', () => {
-    assert.equal(deudaDelGrupo(G.casa, contexto), null);
+test('deudaDelGrupo devuelve null en un grupo SALDADO de verdad', () => {
+    // Casa sin nada es «vacío», no «saldado»: una implementación que solo
+    // devolviera null con listas vacías pasaría esa prueba sin comprobar nada.
+    // Aquí hay un gasto y una liquidación que se compensan exactamente.
+    const saldado = {
+        ...contexto,
+        gastos: [...gastos, { group_id: G.casa, paid_by: YO, amount: 40, payer_share: 0.5 }],
+        liquidaciones: [{ group_id: G.casa, from_user: OTRO, to_user: YO, amount: 20 }],
+    };
+    assert.equal(deudaDelGrupo(G.casa, saldado), null, 'debe 20 y ha pagado 20: cero');
+    assert.equal(deudaDelGrupo(G.casa, contexto), null, 'y un grupo vacío, también');
+});
+
+test('deudaDelGrupo también acierta cuando el que debe es el OTRO', () => {
+    // La rama contraria: sin esto, invertir solo el caso `saldo > 0` pasaría
+    // todas las demás pruebas.
+    const alReves = {
+        ...contexto,
+        gastos: [{ group_id: G.casa, paid_by: YO, amount: 100, payer_share: 0.5 }],
+    };
+    const d = deudaDelGrupo(G.casa, alReves);
+    assert.equal(d.euros, 50);
+    assert.equal(d.deudor, OTRO, 'lo he pagado yo, así que me debe');
+    assert.equal(d.acreedor, YO);
 });
 
 test('deudaDelGrupo devuelve null en un grupo SOLO y en uno MULTI', () => {
@@ -110,17 +132,35 @@ test('validarTraslado trata la deuda entera como traslado total', () => {
     assert.equal(r.importe, null, 'pedir justo la deuda es «todo»: lo calcula el servidor');
 });
 
-test('validarTraslado acepta coma decimal, que es lo que se teclea aquí', () => {
+test('validarTraslado lee el dinero como el resto de la aplicación', () => {
     const deuda = deudaDelGrupo(G.slovenia, contexto);
-    const r = validarTraslado({ origenId: G.slovenia, destinoId: G.bierzo, importe: '20,50', deuda });
-    assert.equal(r.ok, true);
-    assert.equal(r.importe, 20.5);
+    const v = (importe) => validarTraslado({ origenId: G.slovenia, destinoId: G.bierzo, importe, deuda });
+
+    assert.equal(v('20,50').importe, 20.5, 'coma decimal');
+    assert.equal(v('1.234,56').ok, false, 'más que la deuda, pero se ENTIENDE el número');
+    assert.equal(v('225,59 €').importe, null, 'con el símbolo pegado');
+    assert.equal(v('20 + 5').importe, 25, 'una suma, como en la hoja de gasto');
+    // El fallo concreto: «1.234» son mil doscientos treinta y cuatro aquí, y
+    // un parseo ingenuo lo convertía en 1,23 € sin decir nada.
+    assert.equal(v('1.234').ok, false, '1.234 no cabe en 225,59: no puede colarse como 1,23');
 });
 
 test('validarTraslado no se confunde con la aritmética binaria', () => {
     const deuda = { euros: 0.3, deudor: YO, acreedor: OTRO };
     const r = validarTraslado({ origenId: G.slovenia, destinoId: G.bierzo, importe: 0.1 + 0.2, deuda });
     assert.equal(r.ok, true, '0.1+0.2 es 0.30000000000000004 y aun así cabe en 0,30 €');
+    assert.equal(r.importe, null, 'y como es la deuda entera, se manda como «todo»');
+});
+
+test('resumenDeTraslado con «todo» dice que el origen queda a cero', () => {
+    const deuda = deudaDelGrupo(G.slovenia, contexto);
+    const r = resumenDeTraslado({
+        deuda, importe: null, nombreOrigen: 'Slovenia', nombreDestino: 'Bierzo',
+        nombre: (id) => (id === YO ? 'Dani' : 'Pilar'),
+    });
+    assert.equal(r.total, true);
+    assert.equal(r.cuanto, 225.59);
+    assert.equal(r.restante, 0);
 });
 
 test('un movimiento de traslado no se confunde con un pago', () => {
@@ -240,8 +280,25 @@ test('un fallo de RED encola; uno de permiso NO', async () => {
         rpc: async () => ({ error: { code: '42501', message: 'permission denied' } }),
     };
     const r2 = await trasladarSaldo(permiso, { argumentos: args('k-perm'), cola, online: true });
-    assert.notEqual(r2.estado, 'pendiente', 'reintentar un permiso denegado no arregla nada');
+    // `notEqual('pendiente')` era demasiado flojo: pasaría con 'servidor',
+    // que es justo el fallo de decir «trasladado» cuando no ha pasado nada.
+    assert.equal(r2.estado, 'error', 'un permiso denegado es un error, no un éxito');
     assert.equal(cola.tareas.length, 1, 'y no se encola');
+});
+
+test('deshacer sin conexión no miente: avisa y no encola nada', async () => {
+    const r = await deshacerTraslado({}, { transferId: 't1', online: false });
+    assert.equal(r.estado, 'error');
+    assert.match(r.mensaje, /conexión/);
+});
+
+test('deshacer con éxito lo dice, y un permiso denegado también', async () => {
+    const ok = { rpc: async () => ({ error: null }) };
+    assert.equal((await deshacerTraslado(ok, { transferId: 't1' })).estado, 'servidor');
+
+    const no = { rpc: async () => ({ error: { code: '42501', message: 'permission denied' } }) };
+    const r = await deshacerTraslado(no, { transferId: 't1' });
+    assert.notEqual(r.estado, 'servidor', 'no puede decir que se ha deshecho');
 });
 
 test('reintentar la misma tarea dos veces usa la misma clave', async () => {

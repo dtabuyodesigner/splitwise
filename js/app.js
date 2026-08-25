@@ -53,6 +53,8 @@ const estado = {
     liquidaciones: [],
     traslados: [],
     trasladoEnCurso: null,   // clave de idempotencia de la acción en marcha
+    importeTrasladoSugerido: null,
+    deshaciendoTraslado: false,
     almacen: null,
     cola: null,
     truncado: false,
@@ -766,11 +768,15 @@ function pintarLista() {
                     nombreOrigen: t ? nombreDeGrupo(t.grupo_origen) : null,
                     nombreDestino: t ? nombreDeGrupo(t.grupo_destino) : null,
                 });
+                // Solo se puede deshacer desde las dos mitades vivas: las de
+                // reversión ya SON el deshacer, y el servidor no haría nada.
+                const sePuedeDeshacer = !deshecho
+                    && (m.transfer_role === 'origen' || m.transfer_role === 'destino');
                 html +=
                     '<button class="gasto gasto--liquidacion gasto--traslado' +
                     (deshecho ? ' gasto--traslado-deshecho' : '') + clasesEstado + '"' +
                     ' data-color="' + escapar(de.color) + '"' +
-                    ' data-traslado="' + escapar(m.transfer_id) + '">' +
+                    (sePuedeDeshacer ? ' data-traslado="' + escapar(m.transfer_id) + '"' : '') + '>' +
                     '<span class="gasto__icono" aria-hidden="true">🔀</span>' +
                     '<span class="gasto__cuerpo">' +
                     '<span class="gasto__concepto">' + escapar(titulo) + '</span>' +
@@ -1932,9 +1938,27 @@ function nombreDeGrupo(id) {
     return g ? g.name : 'otro grupo';
 }
 
+/** ¿Hay ya un traslado de ESTE grupo esperando en la cola? */
+function trasladoPendienteDe(grupoId) {
+    return estado.cola.tareas.find(
+        (t) => t.tipo === TIPO.LLAMAR && t.tabla === 'trasladar_saldo'
+            && t.fila && String(t.fila.p_grupo_origen) === String(grupoId),
+    ) || null;
+}
+
 function abrirHojaTraslado() {
     if (!grupo(estado.grupoActivo)) { recado('Crea primero un grupo'); return; }
     if (!grupoAdmite('saldar')) return;
+
+    // Un traslado que quedó pendiente NO cambia el estado local: la deuda se
+    // sigue viendo entera y el botón sigue ahí. Sin esta guarda, quien no vea
+    // ningún efecto vuelve a entrar, se genera una clave NUEVA —la cola
+    // deduplica por clave, no por grupo— y al recuperar la red se ejecutan
+    // los dos. Con importe parcial eso mueve el doble de dinero.
+    if (trasladoPendienteDe(estado.grupoActivo)) {
+        recado('Ya hay un traslado de este grupo esperando a enviarse');
+        return;
+    }
 
     const deuda = deudaDelGrupo(estado.grupoActivo, contextoTraslado());
     if (!deuda) {
@@ -1965,6 +1989,9 @@ function abrirHojaTraslado() {
         .join('');
 
     $('entradaImporteTraslado').value = deuda.euros.toFixed(2).replace('.', ',');
+    // Se recuerda lo que se puso: si no lo tocan, es «todo» y lo calcula el
+    // servidor; si lo tocan, se manda el número exacto que se ha leído.
+    estado.importeTrasladoSugerido = $('entradaImporteTraslado').value;
     $('pistaTraslado').textContent =
         'Déjalo tal cual para trasladar la deuda entera, o escribe menos para llevarte solo una parte.';
 
@@ -1982,10 +2009,18 @@ function cerrarHojaTraslado() {
 async function confirmarOTrasladar() {
     const deuda = deudaDelGrupo(estado.grupoActivo, contextoTraslado());
     const destinoId = $('entradaDestinoTraslado').value;
+    const escrito = $('entradaImporteTraslado').value;
+
+    // Si el campo sigue como se sugirió, es «todo»: el servidor calculará el
+    // saldo. Si lo han cambiado, se manda ese número exacto. Deducir «todo»
+    // de que el número coincida con la deuda LOCAL era peligroso: con un
+    // gasto todavía en cola la pantalla dice una cifra y el servidor traslada
+    // otra distinta.
+    const intacto = escrito === estado.importeTrasladoSugerido;
     const v = validarTraslado({
         origenId: estado.grupoActivo,
         destinoId,
-        importe: $('entradaImporteTraslado').value,
+        importe: intacto ? null : escrito,
         deuda,
     });
 
@@ -2015,6 +2050,11 @@ async function confirmarOTrasladar() {
         // La clave se genera AQUÍ, una sola vez: si hay que reintentar, se
         // reutiliza, y por eso un doble toque no puede trasladar dos veces.
         estado.trasladoEnCurso = crypto.randomUUID();
+        // Un doble toque rápido entraría por la rama de envío sin que nadie
+        // haya podido leer la confirmación. Se bloquea un momento el botón:
+        // el patrón «pulsa dos veces» no puede saltarse a sí mismo.
+        $('botonGuardarTraslado').disabled = true;
+        setTimeout(() => { $('botonGuardarTraslado').disabled = false; }, 600);
         return;
     }
 
@@ -2036,13 +2076,18 @@ async function confirmarOTrasladar() {
         if (r.estado === 'servidor' || r.estado === 'duplicado') {
             cerrarHojaTraslado();
             recado('Saldo trasladado a ' + nombreDeGrupo(destinoId));
-            await recargar();
+            await refrescar();
             return;
         }
         if (r.estado === 'pendiente') {
             cerrarHojaTraslado();
             recado('Traslado pendiente de enviar');
             pintarEstado();
+            return;
+        }
+        if (r.estado === 'sesion') {
+            cerrarHojaTraslado();
+            informar(r, { sustantivo: 'Traslado' });
             return;
         }
         mostrarAviso($('avisoTraslado'), r.mensaje || mensajeResultado(r));
@@ -2055,13 +2100,28 @@ async function confirmarOTrasladar() {
 
 /** Deshacer: el servidor compensa, no borra. */
 async function deshacerTrasladoDeMovimiento(transferId) {
+    if (estado.deshaciendoTraslado) return;   // dos toques, una sola llamada
+
+    const t = estado.traslados.find((x) => String(x.id) === String(transferId));
+    if (t && t.revertido_en) {
+        recado('Este traslado ya estaba deshecho');
+        return;
+    }
     if (!confirm('¿Deshacer este traslado? La deuda volverá al grupo de origen.')) return;
-    const r = await deshacerTraslado(sb, { transferId, online: online() });
-    if (r.estado === 'servidor') {
-        recado('Traslado deshecho');
-        await recargar();
-    } else {
-        recado(r.mensaje || 'No se ha podido deshacer');
+
+    estado.deshaciendoTraslado = true;
+    try {
+        const r = await deshacerTraslado(sb, { transferId, online: online() });
+        if (r.estado === 'servidor') {
+            recado('Traslado deshecho');
+            await refrescar();
+        } else if (r.estado === 'sesion') {
+            informar(r, { sustantivo: 'Traslado' });
+        } else {
+            recado(r.mensaje || 'No se ha podido deshacer');
+        }
+    } finally {
+        estado.deshaciendoTraslado = false;
     }
 }
 

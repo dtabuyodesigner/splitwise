@@ -8,6 +8,7 @@
 //  destinos imposibles.
 // ============================================================
 import { calcularSaldo, delGrupo } from './balances.js';
+import { aCentimos, aNumero } from './dinero.js';
 import { TIPO, otroDelGrupo, tipoDeGrupo } from './miembros.js';
 
 /** Papeles que `0007` pone en `settlements.transfer_role`. */
@@ -114,12 +115,16 @@ export function validarTraslado({ origenId, destinoId, importe, deuda }) {
         return { ok: true, importe: null };
     }
 
-    const n = typeof importe === 'number' ? importe : Number(String(importe).replace(',', '.'));
+    // El mismo `aNumero` que las hojas de gasto y de liquidación. Antes esto
+    // hacía `replace(',', '.')` por su cuenta, y con eso «1.234» se
+    // convertía en 1,23 € en silencio, mientras que «1.234,56» o «225,59 €»
+    // —que el resto de la aplicación acepta— se rechazaban como no numéricos.
+    const n = aNumero(importe);
     if (!Number.isFinite(n)) return { ok: false, motivo: 'El importe no es un número.' };
 
     // Se compara en céntimos enteros: 0.1 + 0.2 no vale para esto.
-    const cent = Math.round(n * 100);
-    const tope = Math.round(deuda.euros * 100);
+    const cent = aCentimos(n);
+    const tope = aCentimos(deuda.euros);
     if (cent <= 0) return { ok: false, motivo: 'El importe tiene que ser mayor que cero.' };
     if (cent > tope) {
         return { ok: false, motivo: `No puedes trasladar más de ${(tope / 100).toFixed(2)} €.` };
