@@ -337,11 +337,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/97_frontera_viajes_despues.sql 2>&1 | tee -a /tmp/salida-sql.log
 
       - name: La aplicación de viajes queda cerrada
-        env:
-          PGPASSWORD: desechable
-          PGHOST: localhost
-          PGUSER: postgres
-          PGDATABASE: desechable
+        # Sin `env:` propio: hereda el del trabajo. Ponerle uno copiado de
+        # otro trabajo fue justo lo que rompió el CI.
         run: |
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/97b_seguridad_viajes.sql 2>&1 | tee -a /tmp/salida-sql.log
