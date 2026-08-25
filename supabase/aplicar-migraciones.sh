@@ -44,6 +44,7 @@ PASOS=(
     "migrations/0004_rls.sql"
     "migrations/0005_realtime.sql"
     "migrations/0006_rls_viajes.sql"
+    "migrations/0007_traslado_de_saldo.sql"
 )
 
 echo "Migraciones a aplicar, en este orden:"
