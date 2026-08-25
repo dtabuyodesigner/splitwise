@@ -1,57 +1,70 @@
 -- ============================================================
--- 0009 · Cerrar los privilegios POR DEFECTO de las funciones futuras
+-- 0009 · Privilegios por defecto de las funciones de `public`
 --
 -- Correctiva. 0007 y 0008 ya están desplegadas: esto no las reescribe.
 --
--- Qué quedaba suelto. 0008 cerró las quince funciones que existían, y ejecutó
+-- ── Qué venía a arreglar ─────────────────────────────────────
 --
---     alter default privileges in schema public revoke execute on functions from anon;
+-- 0008 ejecutó `alter default privileges in schema public revoke ... from
+-- anon` SIN `for role`, y esa forma solo toca los privilegios por defecto
+-- del rol que la ejecuta. En Supabase hay más de un rol con ACL por defecto
+-- en `public` —al menos `postgres` y `supabase_admin`—, así que la entrada
+-- de `supabase_admin` seguía concediendo EXECUTE a `anon`.
 --
--- pero esa forma, sin `FOR ROLE`, solo afecta a los privilegios por defecto
--- del rol que la ejecuta. En Supabase hay MÁS de un rol creador con ACL por
--- defecto en `public` —al menos `postgres` y `supabase_admin`—, así que la
--- entrada de `supabase_admin` seguía concediendo EXECUTE a `anon` sobre toda
--- función futura. La siguiente migración habría vuelto a abrirlo todo.
+-- ── Hasta dónde llega, de verdad ─────────────────────────────
 --
--- Aquí se recorren TODOS los roles que tengan ACL por defecto de funciones en
--- `public`, sea cual sea. Enumerar es lo único que cubre a los que no
--- conocemos.
+-- Una primera versión intentaba `alter default privileges for role
+-- supabase_admin`, y produccción respondió:
 --
--- Qué NO toca: ni `auth`, ni `storage`, ni `graphql`, ni `extensions`, ni
--- `realtime`, ni las ACL de ninguna función fuera de `public`. Solo los
--- valores por defecto del esquema `public`.
+--     permission denied to change default privileges
 --
--- ── Hasta dónde llega esto, dicho sin adornos ────────────────
+-- Es correcto: `supabase_admin` es un rol de la plataforma, no de esta
+-- aplicación, y el rol con el que se despliega no lo administra. No se
+-- intenta rodear eso de ninguna manera —ni SET ROLE, ni concederse el rol,
+-- ni una función SECURITY DEFINER—: sería escalar privilegios para tocar
+-- algo que no es nuestro.
 --
--- PostgreSQL concede `EXECUTE` a `PUBLIC` sobre toda función nueva, y eso NO
--- se puede quitar desde aquí. Comprobado: `alter default privileges ...
--- revoke execute on functions from public` BORRA la fila de `pg_default_acl`
--- y devuelve el esquema al valor de serie, que es precisamente esa concesión
--- a PUBLIC. La orden se acepta y no hace nada.
+-- Así que esta migración hace lo que le corresponde y **declara lo que no
+-- puede hacer** en vez de fingir que lo ha hecho:
 --
--- Así que lo que 0009 sí consigue es quitar las concesiones DIRECTAS a
--- `anon` y `authenticated`, que son las que Supabase añade y sí se pueden
--- revocar. Lo que NO consigue es que una función futura nazca cerrada a
--- PUBLIC: eso hay que revocarlo función por función, como hace 0008.
+--   · retira las concesiones directas a `anon` y `authenticated` de los
+--     roles que el ejecutor SÍ administra —en la práctica, `postgres`—;
+--   · conserva `service_role`, que es el rol de servidor de confianza;
+--   · enumera los roles que NO puede tocar y los registra como limitación
+--     gestionada por Supabase. Sin abortar: abortar dejaría también sin
+--     hacer la parte que sí está en su mano.
 --
--- La garantía de verdad, entonces, no está en esta migración: está en la
--- prueba P1, que recorre todas las funciones de `public` y falla en el CI si
--- alguna es ejecutable por `anon` o por PUBLIC. Una migración que se olvide
--- de su `revoke` no llega a producción. Es menos elegante que un ajuste de
--- esquema, pero es lo que de verdad se puede cumplir.
+-- Y hay una segunda cosa que tampoco se puede: PostgreSQL concede EXECUTE a
+-- PUBLIC en toda función nueva, y `revoke ... from public` en los privilegios
+-- por defecto BORRA la fila y devuelve el esquema a ese mismo valor de serie.
+-- Comprobado.
+--
+-- ── Dónde está entonces la garantía ──────────────────────────
+--
+-- No en el esquema, sino en la comprobación:
+-- `supabase/pruebas/106_ninguna_funcion_abierta.sql` recorre TODAS las
+-- funciones de `public` y falla si alguna es ejecutable por PUBLIC o por
+-- `anon`. Corre en el CI y como última puerta de `aplicar-migraciones.sh`.
+--
+-- Y eso basta mientras se cumpla lo que sí controlamos: las funciones de
+-- esta aplicación las crean sus migraciones, ejecutadas como `postgres`, así
+-- que nacen con los privilegios por defecto de `postgres` —los que esta
+-- migración sí limpia— y cada una revoca PUBLIC explícitamente.
 --
 -- Idempotente. Pensada para --single-transaction.
 -- ============================================================
 
 do $defaults$
 declare
-    d          record;
-    n          integer := 0;
-    sin_grants integer := 0;
+    d              record;
+    modificados    text := '';
+    no_modificables text := '';
+    n_ok           integer := 0;
+    n_no           integer := 0;
+    pendientes     integer;
 begin
     for d in
-        select (select r.rolname from pg_roles r where r.oid = da.defaclrole) as rol,
-               da.defaclacl
+        select (select r.rolname from pg_roles r where r.oid = da.defaclrole) as rol
           from pg_default_acl da
           join pg_namespace ns on ns.oid = da.defaclnamespace
          where da.defaclobjtype = 'f'          -- solo funciones
@@ -61,62 +74,98 @@ begin
             continue;
         end if;
 
-        -- anon y PUBLIC fuera, en las funciones que cree este rol de aquí en
-        -- adelante.
-        execute format(
-            'alter default privileges for role %I in schema public '
-            'revoke execute on functions from anon',
-            d.rol);
-        -- A PUBLIC no se le puede quitar desde aquí (ver la cabecera), pero
-        -- se intenta igualmente: si en alguna versión futura de PostgreSQL
-        -- pasara a funcionar, esto ya estaría puesto.
-        execute format(
-            'alter default privileges for role %I in schema public '
-            'revoke execute on functions from public',
-            d.rol);
+        -- Se intenta, y si no se puede se anota. No se comprueba antes con
+        -- `pg_has_role` y ya está: el permiso para cambiar privilegios por
+        -- defecto no se deduce solo de la pertenencia, y lo que importa es
+        -- el resultado real, no nuestra predicción de él.
+        begin
+            execute format(
+                'alter default privileges for role %I in schema public '
+                'revoke execute on functions from anon', d.rol);
+            execute format(
+                'alter default privileges for role %I in schema public '
+                'revoke execute on functions from authenticated', d.rol);
 
-        -- Y tampoco `authenticated` por defecto: cada RPC pública tiene que
-        -- recibir su GRANT explícito. Es lo que convierte «exponer una
-        -- función» en una decisión y no en un descuido — que es justo cómo
-        -- llegó `trasladar_saldo` a estar al alcance del rol anónimo.
-        execute format(
-            'alter default privileges for role %I in schema public '
-            'revoke execute on functions from authenticated',
-            d.rol);
-
-        raise notice 'Privilegios por defecto cerrados para el rol creador: %', d.rol;
-        n := n + 1;
+            modificados := modificados || ' ' || d.rol;
+            n_ok := n_ok + 1;
+        exception when insufficient_privilege then
+            -- Rol de la plataforma. No es nuestro y no se fuerza.
+            no_modificables := no_modificables || ' ' || d.rol;
+            n_no := n_no + 1;
+        end;
     end loop;
 
-    if n = 0 then
-        raise notice 'No hay ningún privilegio por defecto de funciones en public: nada que cerrar';
+    if n_ok > 0 then
+        raise notice 'Privilegios por defecto limpiados en el/los rol(es):%', modificados;
     end if;
 
-    -- `service_role` se deja como está a propósito: es el rol de servidor de
-    -- confianza de Supabase, no llega desde el navegador, y quitárselo puede
-    -- romper piezas de la plataforma que no son de esta aplicación.
+    if n_no > 0 then
+        raise notice
+            'LIMITACION DECLARADA — sin permiso para cambiar los privilegios por defecto de:%. '
+            'Son roles gestionados por Supabase, no de esta aplicacion. NO se han corregido.',
+            no_modificables;
+        raise notice
+            '  No importa mientras se cumpla lo que si controlamos: las funciones de esta '
+            'aplicacion las crean sus migraciones como `postgres`, y 106 comprueba que '
+            'ninguna funcion de public queda abierta a PUBLIC ni a anon.';
+    end if;
 
-    -- Comprobación: no puede quedar ni un rol creador que conceda EXECUTE
-    -- DIRECTAMENTE a anon o a authenticated. PUBLIC se queda fuera de esta
-    -- comprobación a propósito: no se puede quitar, y exigirlo aquí haría
-    -- fallar la migración por algo que no está en su mano.
-    select count(*) into sin_grants
+    -- Comprobación acotada a lo que esta migración sí gobierna: los roles
+    -- que ha podido tocar no pueden seguir concediendo a anon ni a
+    -- authenticated. Los que no ha podido quedan fuera a propósito: exigirlo
+    -- haría fallar la migración por algo que no está en su mano.
+    select count(*) into pendientes
       from pg_default_acl da
       join pg_namespace ns on ns.oid = da.defaclnamespace
       join aclexplode(da.defaclacl) a on true
       join pg_roles r on r.oid = a.grantee
+      join pg_roles cre on cre.oid = da.defaclrole
      where da.defaclobjtype = 'f' and ns.nspname = 'public'
        and a.privilege_type = 'EXECUTE'
-       and r.rolname in ('anon', 'authenticated');
+       and r.rolname in ('anon', 'authenticated')
+       and position(' ' || cre.rolname in modificados) > 0;
 
-    if sin_grants > 0 then
+    if pendientes > 0 then
         raise exception
-            'Siguen quedando % concesión(es) por defecto a anon o authenticated', sin_grants
+            'Quedan % concesion(es) por defecto a anon o authenticated en roles que SI se administran',
+            pendientes
             using errcode = 'insufficient_privilege';
     end if;
 
-    raise notice 'Ningún rol creador concede ya EXECUTE por defecto a anon ni a authenticated';
-    raise notice 'AVISO: PostgreSQL seguirá dando EXECUTE a PUBLIC en cada función nueva. '
-                 'Cada migración tiene que revocarlo, y la prueba P1 falla en el CI si se olvida.';
+    raise notice
+        'AVISO: PostgreSQL seguira concediendo EXECUTE a PUBLIC en cada funcion nueva. '
+        'Cada migracion tiene que revocarlo, y 106 falla si se olvida.';
 end
 $defaults$;
+
+-- ── Las funciones de esta aplicación son de `postgres` ───────
+-- Es la condición de la que depende todo lo anterior: si las crearan bajo
+-- `supabase_admin`, heredarían SUS privilegios por defecto, que no podemos
+-- limpiar. Se comprueba aquí, en la propia migración, para que un cambio de
+-- rol de despliegue no pase inadvertido.
+do $duenos$
+declare
+    ajenas text;
+begin
+    select string_agg(p.proname || ' → ' || r.rolname, ', ')
+      into ajenas
+      from pg_proc p
+      join pg_namespace ns on ns.oid = p.pronamespace
+      join pg_roles r on r.oid = p.proowner
+     where ns.nspname = 'public'
+       and p.prokind = 'f'
+       and p.proname in ('es_miembro','es_owner','puede_viajes','saldo_centimos',
+                         'pareja_del_grupo','trasladar_saldo','revertir_traslado',
+                         'handle_new_user','proteger_traslado',
+                         'proteger_liquidacion_de_traslado','comprobar_traslado_coherente')
+       and r.rolname <> current_user;
+
+    if ajenas is not null then
+        raise notice
+            'AVISO: hay funciones de la aplicacion cuyo dueno no es %: %. '
+            'Heredarian los privilegios por defecto de ESE rol.', current_user, ajenas;
+    else
+        raise notice 'Todas las funciones de la aplicacion pertenecen a %', current_user;
+    end if;
+end
+$duenos$;

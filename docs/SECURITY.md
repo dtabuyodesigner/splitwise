@@ -344,3 +344,28 @@ crea una función a mano, tiene que escribir el `revoke` a mano también.
 Se descartó a propósito un **event trigger** que revocara en cada
 `CREATE FUNCTION`: necesita superusuario, cambia el comportamiento global de la
 base y afectaría también a lo que cree la propia Supabase.
+
+### Los privilegios por defecto de `supabase_admin`: fuera de nuestro alcance
+
+En `public` hay ACL por defecto de **dos** roles: `postgres` —con el que se
+despliega— y **`supabase_admin`**, de la plataforma. La migración `0009` limpia
+el primero. El segundo **no se puede tocar**: producción respondió
+
+```
+permission denied to change default privileges
+```
+
+y así debe ser. No se intenta rodear con `SET ROLE`, concediéndose el rol ni
+con una función `SECURITY DEFINER`: sería escalar privilegios para modificar
+algo que no es de esta aplicación. `0009` lo **declara** y sigue, en lugar de
+abortar —abortar dejaría también sin hacer la parte que sí está en su mano.
+
+**Por qué no importa**, mientras se cumplan tres cosas que sí controlamos:
+
+1. Las funciones de la aplicación las crean **sus migraciones**, ejecutadas
+   como `postgres`, así que heredan los privilegios por defecto de `postgres`
+   —los que `0009` sí limpia—, no los de `supabase_admin`. Lo comprueba **P13**.
+2. Cada migración revoca `PUBLIC` y `anon` explícitamente.
+3. **`106` falla** si alguna función queda abierta, en el CI y en el despliegue.
+
+Si algún día las migraciones pasaran a ejecutarse con otro rol, P13 lo diría.

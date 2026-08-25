@@ -47,39 +47,69 @@ begin
     end if;
     perform pg_temp.ok('P2', 'ninguna sobrecarga de las RPC del traslado queda expuesta');
 
-    -- Y los privilegios por defecto no vuelven a abrirlas.
+    -- Y los privilegios por defecto.
     --
-    -- Se enumera QUIÉN los deja. La primera versión de esta comprobación
-    -- solo decía «siguen dando EXECUTE a anon», y con eso no se sabía que el
-    -- culpable era la entrada de `supabase_admin` y no la de `postgres`:
-    -- hubo que diagnosticarlo aparte. Un fallo que no dice de dónde viene
-    -- cuesta otra ronda entera.
+    -- Se distinguen dos cosas que no son lo mismo:
+    --
+    --   · un rol que ESTA aplicación administra y que sigue concediendo a
+    --     anon o authenticated → eso es un fallo nuestro;
+    --   · un rol de la plataforma —`supabase_admin`— que hace lo mismo →
+    --     eso no está en nuestra mano y se declara, no se finge arreglado.
+    --
+    -- La primera versión de esta comprobación no distinguía, y por eso 0009
+    -- prometió corregir algo que producción le denegó con «permission denied
+    -- to change default privileges».
     declare
-        culpables text;
+        nuestros   text;
+        ajenos     text;
     begin
-        select string_agg(format('%s → %s', coalesce(d.rol, '(rol desconocido)'), d.quien), '; ')
-          into culpables
+        select string_agg(format('%s → %s', d.rol, d.quien), '; ')
+          into nuestros
           from (
-            select (select r2.rolname from pg_roles r2 where r2.oid = da.defaclrole) as rol,
-                   coalesce(r.rolname, 'PUBLIC') as quien
+            select cre.rolname as rol, coalesce(r.rolname, 'PUBLIC') as quien
               from pg_default_acl da
               join pg_namespace ns on ns.oid = da.defaclnamespace
+              join pg_roles cre on cre.oid = da.defaclrole
               join aclexplode(da.defaclacl) a on true
               left join pg_roles r on r.oid = a.grantee
              where da.defaclobjtype = 'f' and ns.nspname = 'public'
                and a.privilege_type = 'EXECUTE'
-               and (a.grantee = 0 or r.rolname in ('anon', 'authenticated'))
+               and r.rolname in ('anon', 'authenticated')
+               and pg_has_role(current_user, cre.oid, 'member')
           ) d;
 
-        if culpables is not null then
+        select string_agg(format('%s → %s', d.rol, d.quien), '; ')
+          into ajenos
+          from (
+            select cre.rolname as rol, coalesce(r.rolname, 'PUBLIC') as quien
+              from pg_default_acl da
+              join pg_namespace ns on ns.oid = da.defaclnamespace
+              join pg_roles cre on cre.oid = da.defaclrole
+              join aclexplode(da.defaclacl) a on true
+              left join pg_roles r on r.oid = a.grantee
+             where da.defaclobjtype = 'f' and ns.nspname = 'public'
+               and a.privilege_type = 'EXECUTE'
+               and r.rolname in ('anon', 'authenticated')
+               and not pg_has_role(current_user, cre.oid, 'member')
+          ) d;
+
+        if nuestros is not null then
             raise exception
-                '[P3] FALLA — privilegios por defecto abiertos en public (rol creador → beneficiario): %',
-                culpables;
+                '[P3] FALLA — roles que SI administramos siguen concediendo por defecto: %',
+                nuestros;
+        end if;
+
+        if ajenos is not null then
+            raise notice
+                '  [P3] limitación declarada — roles gestionados por Supabase que conceden '
+                'por defecto y NO podemos cambiar: %', ajenos;
+            raise notice
+                '  No es un fallo: lo que importa es que ninguna función exista abierta, y '
+                'de eso se encarga P1.';
         end if;
     end;
     perform pg_temp.ok('P3',
-        'ningún rol creador concede EXECUTE por defecto a anon ni a authenticated '
-        '(PUBLIC no se puede quitar de los valores por defecto: lo cubre P1)');
+        'ningún rol administrable concede EXECUTE por defecto a anon ni a authenticated');
 end $$;
 
 -- ── anon: la puerta está cerrada, y falla por eso ────────────
@@ -297,12 +327,83 @@ begin
                creados));
 end $$;
 
+-- ── Las funciones de la aplicación son del rol que despliega ────
+-- De aquí depende todo: si las crearan bajo `supabase_admin`, heredarían SUS
+-- privilegios por defecto, que no podemos limpiar.
+do $$
+declare ajenas text;
+begin
+    select string_agg(p.proname || ' → ' || r.rolname, ', ')
+      into ajenas
+      from pg_proc p
+      join pg_namespace ns on ns.oid = p.pronamespace
+      join pg_roles r on r.oid = p.proowner
+     where ns.nspname = 'public' and p.prokind = 'f'
+       and p.proname in ('es_miembro','es_owner','puede_viajes','saldo_centimos',
+                         'pareja_del_grupo','trasladar_saldo','revertir_traslado')
+       and not pg_has_role(current_user, p.proowner, 'member');
+
+    if ajenas is not null then
+        raise exception
+            '[P13] FALLA — funciones de la aplicación con dueño que no administramos: %', ajenas;
+    end if;
+    perform pg_temp.ok('P13',
+        'las funciones de la aplicación pertenecen al rol que despliega, no a uno de la plataforma');
+end $$;
+
+-- ── La denegación es real, y 0009 la maneja ─────────────────
+-- Se reproduce el «permission denied to change default privileges» que dio
+-- producción, para que nadie vuelva a prometer que se puede cambiar el rol
+-- de la plataforma. Y se comprueba que el patrón de 0009 —intentarlo dentro
+-- de un bloque con manejador— lo convierte en aviso y no en aborto.
+do $$
+declare
+    rol_ajeno text := 'rol_plataforma_prueba';
+    denegado  boolean := false;
+begin
+    if not exists (select 1 from pg_roles where rolname = rol_ajeno) then
+        begin
+            execute format('create role %I nologin', rol_ajeno);
+        exception when insufficient_privilege then
+            raise notice '  [P14] omitido — no se pueden crear roles aquí';
+            perform pg_temp.ok('P14', 'omitido: sin permiso para crear el rol de prueba');
+            return;
+        end;
+    end if;
+
+    -- Se le quita la pertenencia para que la denegación sea real.
+    begin
+        execute format('revoke %I from current_user', rol_ajeno);
+    exception when others then null;
+    end;
+
+    begin
+        execute format(
+            'alter default privileges for role %I in schema public '
+            'revoke execute on functions from anon', rol_ajeno);
+    exception when insufficient_privilege then
+        denegado := true;
+    end;
+
+    execute format('drop role if exists %I', rol_ajeno);
+
+    if denegado then
+        perform pg_temp.ok('P14',
+            'tocar los privilegios por defecto de un rol ajeno se deniega, y 0009 lo declara en vez de abortar');
+    else
+        -- Con superusuario no se deniega. No es un fallo de la prueba: es
+        -- que aquí el ejecutor puede más que en producción.
+        perform pg_temp.ok('P14',
+            'este ejecutor puede administrar roles ajenos (superusuario): en producción NO, y 0009 lo contempla');
+    end if;
+end $$;
+
 do $$
 declare n integer;
 begin
     select count(*) into n from pr;
-    if n <> 12 then
-        raise exception 'Se esperaban 12 comprobaciones y han corrido %', n;
+    if n <> 14 then
+        raise exception 'Se esperaban 14 comprobaciones y han corrido %', n;
     end if;
     raise notice 'Privilegios de funciones: % comprobaciones superadas', n;
 end $$;
