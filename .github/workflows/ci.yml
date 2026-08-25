@@ -343,6 +343,13 @@ jobs:
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/97b_seguridad_viajes.sql 2>&1 | tee -a /tmp/salida-sql.log
 
+      - name: Invariantes de integridad
+        # Sin un solo recuento fijo, para que sirva igual aqui y contra
+        # produccion, donde los numeros se mueven porque la aplicacion se usa.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/100_invariantes.sql 2>&1 | tee -a /tmp/salida-sql.log
+
       - name: Comprobar el esquema y que no quedan políticas permisivas
         run: |
           set -eo pipefail
