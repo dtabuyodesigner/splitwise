@@ -505,19 +505,25 @@ button { cursor: pointer; border: none; background: none; }
     text-transform: uppercase;
 }
 
-/* Acciones secundarias */
+/* Acciones secundarias
+   Antes esto era `overflow-x: auto` con `scrollbar-width: none`: el quinto
+   botón —«Copia de seguridad», a la derecha de «Importar CSV»— quedaba
+   cortado a 560 px de ancho (696 px reales) y no había NADA que indicara
+   que se podía desplazar. Un scroll horizontal invisible es un botón que no
+   existe para quien no lo descubre por accidente.
+
+   Ahora saltan de línea, que es lo que se lee bien en móvil y en escritorio.
+   No se reduce el texto ni el área táctil: solo se dejan envolver. */
 .utiles {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     padding: 16px 20px 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
 }
-.utiles::-webkit-scrollbar { display: none; }
 
 .util {
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
     padding: 8px 14px;
     background: var(--carta);
     border: 1px solid var(--linea);
@@ -731,6 +737,9 @@ button { cursor: pointer; border: none; background: none; }
     bottom: 0;
     z-index: 20;
     display: flex;
+    /* Con «Trasladar saldo» visible son tres botones. Envolver evita que el
+       último se salga en pantallas estrechas o con el zoom subido. */
+    flex-wrap: wrap;
     gap: 10px;
     max-width: 560px;
     margin: 0 auto;
@@ -752,7 +761,15 @@ button { cursor: pointer; border: none; background: none; }
 }
 .acciones__principal:active { opacity: .85; transform: scale(.98); }
 
+.acciones__principal { min-width: 12ch; }
+
+/* Los secundarios comparten la línea si caben y saltan juntos si no. No se
+   encogen por debajo de su texto: `white-space: nowrap` los mantiene
+   legibles, y el `flex-basis` los reparte a partes iguales al envolver. */
 .acciones__secundario {
+    flex: 1 1 auto;
+    min-width: max-content;
+    white-space: nowrap;
     padding: 17px 22px;
     background: var(--carta);
     color: var(--basalto);
@@ -1058,3 +1075,40 @@ button { cursor: pointer; border: none; background: none; }
         transition-duration: .001ms !important;
     }
 }
+
+/* ── Traslado de saldo ─────────────────────────────────────────
+   Un traslado NO es un pago: mueve la deuda de sitio, no la salda.
+   Por eso su movimiento se distingue del de una liquidación normal. */
+.gasto--traslado .gasto__icono { filter: hue-rotate(190deg); }
+
+.gasto--traslado .gasto__concepto::after {
+    content: 'traslado';
+    margin-left: .5rem;
+    padding: .05rem .4rem;
+    border-radius: 999px;
+    font-size: .62rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    background: var(--fondo-suave, rgba(120, 140, 200, .18));
+    color: var(--texto-suave, inherit);
+}
+
+.gasto--traslado-deshecho .gasto__cuerpo { opacity: .65; }
+
+.hoja__pista {
+    margin: -.35rem 0 .6rem;
+    font-size: .78rem;
+    opacity: .75;
+}
+
+.hoja__confirmacion {
+    margin: .2rem 0 .9rem;
+    padding: .7rem .8rem;
+    border-radius: .7rem;
+    background: var(--fondo-suave, rgba(120, 140, 200, .14));
+    font-size: .85rem;
+    line-height: 1.45;
+}
+
+.hoja__confirmacion strong { display: block; margin-bottom: .2rem; }

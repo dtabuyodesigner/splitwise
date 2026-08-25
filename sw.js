@@ -17,7 +17,7 @@
 //   · Supabase → siempre a la red, nunca se guarda.
 // ============================================================
 
-const VERSION = 'gastos-v16';
+const VERSION = 'gastos-v17';
 
 const ARCHIVOS = [
     './',
@@ -39,6 +39,7 @@ const ARCHIVOS = [
     './js/gastos.js',
     './js/csv.js',
     './js/voice.js',
+    './js/traslados.js',
     './icons/icon-192.png',
     './icons/icon-512.png',
     './icons/maskable-192.png',

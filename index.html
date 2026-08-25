@@ -171,6 +171,7 @@
     <div class="acciones">
         <button class="acciones__principal" id="botonNuevoGasto">+ Añadir gasto</button>
         <button class="acciones__secundario" id="botonLiquidar">Saldar</button>
+        <button class="acciones__secundario oculto" id="botonTrasladar">Trasladar saldo</button>
     </div>
 </div>
 
@@ -244,6 +245,36 @@
 <!-- ============================================================
      HOJA: LIQUIDAR / EDITAR LIQUIDACIÓN
      ============================================================ -->
+<div class="velo oculto" id="veloTraslado">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloTraslado">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloTraslado">Trasladar saldo</h2>
+
+        <p class="aviso oculto" id="avisoTraslado"></p>
+
+        <div class="hoja__resumen" id="resumenTraslado"></div>
+
+        <div class="campo">
+            <label for="entradaDestinoTraslado">Llevar la deuda a</label>
+            <select id="entradaDestinoTraslado"></select>
+        </div>
+
+        <div class="importe">
+            <span class="importe__moneda">€</span>
+            <input type="text" class="importe__campo cifra" id="entradaImporteTraslado"
+                   inputmode="decimal" placeholder="0,00" aria-label="Importe a trasladar">
+        </div>
+        <p class="hoja__pista" id="pistaTraslado"></p>
+
+        <div class="hoja__confirmacion oculto" id="confirmacionTraslado"></div>
+
+        <div class="hoja__botones">
+            <button class="boton boton--fantasma" id="botonCancelarTraslado">Cancelar</button>
+            <button class="boton boton--principal" id="botonGuardarTraslado">Trasladar</button>
+        </div>
+    </div>
+</div>
+
 <div class="velo oculto" id="veloLiquidar">
     <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloLiquidar">
         <div class="hoja__asa"></div>

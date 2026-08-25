@@ -16,6 +16,9 @@ begin
     if not exists (select 1 from pg_roles where rolname = 'authenticated') then
         create role authenticated nologin;
     end if;
+    if not exists (select 1 from pg_roles where rolname = 'service_role') then
+        create role service_role nologin;
+    end if;
 end $$;
 
 create table if not exists auth.users (
@@ -71,3 +74,14 @@ begin
     execute 'grant anon to ' || quote_ident(current_user);
 exception when others then null;   -- ya concedido
 end $$;
+
+-- ── Los privilegios POR DEFECTO de Supabase ──────────────────
+-- Esto es lo que de verdad tiene el proyecto real: toda función nueva del
+-- esquema `public` nace con EXECUTE para anon, authenticated y service_role.
+--
+-- Sin ponerlo aquí, el CI corría sobre una base más cerrada que producción y
+-- daba por buena una migración que allí dejaba las funciones abiertas al rol
+-- anónimo. Es exactamente lo que dejó pasar el incidente E12: la prueba no
+-- reproducía la condición que causaba el fallo.
+alter default privileges in schema public
+    grant execute on functions to anon, authenticated, service_role;

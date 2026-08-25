@@ -195,3 +195,66 @@ export async function borrarApunte(sb, {
     restaurar();
     return resultado(estadoDeClase(c.clase), { clase: c.clase, mensaje: c.mensaje });
 }
+
+/**
+ * Traslado de saldo entre grupos.
+ *
+ * Mismo criterio que `crearApunte`: sin conexión, o con un fallo de RED, va a
+ * la cola; permiso, validación y sesión se informan y NO se encolan, porque
+ * reintentarlos no arreglaría nada.
+ *
+ * La diferencia está en la clave de idempotencia: se genera UNA vez, antes de
+ * llamar, y se reutiliza en cada reintento. Por eso un doble clic, una
+ * reconexión o un vaciado de cola repetido no pueden trasladar dos veces.
+ */
+export async function trasladarSaldo(sb, { argumentos, cola, online = true }) {
+    if (!online) {
+        cola.encolarLlamada('trasladar_saldo', argumentos);
+        return resultado('pendiente', { fila: argumentos, clase: CLASE.RED });
+    }
+
+    let error = null;
+    let datos = null;
+    try {
+        const r = await sb.rpc('trasladar_saldo', argumentos);
+        error = r?.error || null;
+        datos = r?.data || null;
+    } catch (e) {
+        error = e;
+    }
+
+    if (!error) return resultado('servidor', { fila: datos || argumentos });
+
+    const c = clasificarError(error, { online });
+
+    if (c.clase === CLASE.DUPLICADO) {
+        // La clave ya estaba: el traslado entró en un intento anterior.
+        return resultado('duplicado', { fila: argumentos, clase: c.clase, mensaje: c.mensaje });
+    }
+
+    if (c.recuperable) {
+        cola.encolarLlamada('trasladar_saldo', argumentos);
+        return resultado('pendiente', { fila: argumentos, clase: c.clase, mensaje: c.mensaje });
+    }
+
+    return resultado(estadoDeClase(c.clase), { fila: argumentos, clase: c.clase, mensaje: c.mensaje });
+}
+
+/** Deshacer un traslado. No borra nada: el servidor compensa. */
+export async function deshacerTraslado(sb, { transferId, online = true }) {
+    if (!online) {
+        return resultado('error', {
+            clase: CLASE.RED,
+            mensaje: 'Para deshacer un traslado hace falta conexión.',
+        });
+    }
+    try {
+        const { error } = await sb.rpc('revertir_traslado', { p_transfer_id: transferId });
+        if (!error) return resultado('servidor', { fila: { id: transferId } });
+        const c = clasificarError(error, { online });
+        return resultado(estadoDeClase(c.clase), { clase: c.clase, mensaje: c.mensaje });
+    } catch (e) {
+        const c = clasificarError(e, { online });
+        return resultado(estadoDeClase(c.clase), { clase: c.clase, mensaje: c.mensaje });
+    }
+}
