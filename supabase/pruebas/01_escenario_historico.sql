@@ -151,40 +151,50 @@ create policy "cualquiera de los dos borra liquidaciones" on public.settlements
 --  Las migraciones de gastos NO deben tocar nada de esto. La prueba de
 --  frontera (96/97) compara su estado antes y después.
 -- ------------------------------------------------------------
+-- Este es el esquema REAL de producción, leído del catálogo: `id` y `viaje`
+-- son `text`, no `uuid`; no hay claves foráneas hacia `profiles`; y el único
+-- rastro de autoría es `autor text`, un correo suelto. Antes aquí había una
+-- reconstrucción inventada que no se parecía, y mientras ninguna migración
+-- tocara viajes daba igual. Desde 0006 ya no da igual.
 create table public.viajes (
-    id          uuid primary key default gen_random_uuid(),
-    titulo      text not null,
-    inicio      date,
-    fin         date,
-    creado_por  uuid references public.profiles(id) on delete set null,
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now()
+    id          text primary key,
+    nombre      text not null,
+    desde       text default ''::text,
+    hasta       text default ''::text,
+    salida      text default ''::text,
+    dias        jsonb not null default '[]'::jsonb,
+    autor       text default ''::text,
+    actualizado timestamptz not null default now(),
+    borrado     boolean not null default false
 );
 
 create table public.viaje_diario (
-    id        uuid primary key default gen_random_uuid(),
-    viaje_id  uuid not null references public.viajes(id) on delete cascade,
-    dia       date not null,
-    texto     text,
-    created_at timestamptz not null default now()
+    viaje       text primary key,
+    hechas      jsonb not null default '{}'::jsonb,
+    desmarcadas jsonb not null default '{}'::jsonb,
+    notas       jsonb not null default '{}'::jsonb,
+    actualizado timestamptz not null default now(),
+    pernoctas   jsonb not null default '[]'::jsonb
 );
 
 create table public.viaje_fotos (
-    id        uuid primary key default gen_random_uuid(),
-    viaje_id  uuid not null references public.viajes(id) on delete cascade,
-    url       text not null,
-    created_at timestamptz not null default now()
+    id      text primary key,
+    viaje   text not null,
+    dia     integer not null,
+    datos   text not null,
+    autor   text default ''::text,
+    cuando  timestamptz not null default now(),
+    borrada boolean not null default false
 );
 
-create index idx_viaje_diario_viaje on public.viaje_diario(viaje_id);
-create index idx_viaje_fotos_viaje  on public.viaje_fotos(viaje_id);
+create index idx_viaje_fotos_viaje on public.viaje_fotos(viaje);
 
 create or replace function public.viajes_tocar()
 returns trigger
 language plpgsql
 as $$
 begin
-    new.updated_at := now();
+    new.actualizado := now();
     return new;
 end;
 $$;
@@ -207,14 +217,24 @@ create policy "cualquiera de los dos crea viajes" on public.viajes
     for insert to authenticated with check (true);
 create policy "cualquiera de los dos edita viajes" on public.viajes
     for update to authenticated using (true) with check (true);
+create policy "cualquiera de los dos borra viajes" on public.viajes
+    for delete to authenticated using (true);
 create policy "diario visible para la pareja" on public.viaje_diario
     for select to authenticated using (true);
 create policy "cualquiera de los dos escribe el diario" on public.viaje_diario
     for insert to authenticated with check (true);
+create policy "cualquiera de los dos edita el diario" on public.viaje_diario
+    for update to authenticated using (true) with check (true);
+create policy "cualquiera de los dos borra el diario" on public.viaje_diario
+    for delete to authenticated using (true);
 create policy "fotos visibles para la pareja" on public.viaje_fotos
     for select to authenticated using (true);
 create policy "cualquiera de los dos sube fotos" on public.viaje_fotos
     for insert to authenticated with check (true);
+create policy "cualquiera de los dos edita fotos" on public.viaje_fotos
+    for update to authenticated using (true) with check (true);
+create policy "cualquiera de los dos borra fotos" on public.viaje_fotos
+    for delete to authenticated using (true);
 
 do $$
 begin
@@ -223,8 +243,7 @@ begin
     end if;
 end $$;
 
-alter publication supabase_realtime add table public.viajes;
-alter publication supabase_realtime add table public.viaje_diario;
+-- Producción NO publica ninguna tabla de viajes en Realtime.
 
 -- ------------------------------------------------------------
 --  Datos con la misma forma que los reales
@@ -261,10 +280,16 @@ values ('aaaaaaaa-0000-0000-0000-0000000000f0',
         '11111111-1111-1111-1111-111111111111',
         100, current_date, 'hist-liq-1');
 
-insert into public.viajes (id, titulo, creado_por) values
-    ('bbbbbbbb-0000-0000-0000-000000000001', 'Un viaje',
-     '11111111-1111-1111-1111-111111111111');
-insert into public.viaje_diario (viaje_id, dia, texto)
-values ('bbbbbbbb-0000-0000-0000-000000000001', current_date, 'una nota');
-insert into public.viaje_fotos (viaje_id, url)
-values ('bbbbbbbb-0000-0000-0000-000000000001', 'https://ejemplo.test/f.jpg');
+-- Los mismos volúmenes que producción: 3 viajes, 2 días de diario, 8 fotos.
+-- El `autor` es texto libre con un correo, tal cual está en producción: por
+-- eso 0006 no puede derivar de aquí quién tiene acceso.
+insert into public.viajes (id, nombre, autor) values
+    ('viaje-1', 'Un viaje',  'alguien@ejemplo.invalido'),
+    ('viaje-2', 'Otro',      'alguien@ejemplo.invalido'),
+    ('viaje-3', 'Y un tercero', 'alguien@ejemplo.invalido');
+insert into public.viaje_diario (viaje, notas) values
+    ('viaje-1', '{"1":"una nota"}'::jsonb),
+    ('viaje-2', '{"1":"otra"}'::jsonb);
+insert into public.viaje_fotos (id, viaje, dia, datos, autor)
+select 'foto-' || i, 'viaje-1', 1, 'datos', 'alguien@ejemplo.invalido'
+from generate_series(1, 8) as i;
