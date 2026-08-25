@@ -1,8 +1,11 @@
 # Pendientes no bloqueantes
 
 Mejoras detectadas durante la fase 1 que **no** invalidan el trabajo hecho y
-que se han dejado documentadas en lugar de abordarlas. Ninguna bloquea el
-cierre de esta fase.
+que se han dejado documentadas en lugar de abordarlas. Ninguna bloqueó el cierre
+de la fase 1 ni el de la fase 2.
+
+La fase 2 está cerrada: producción migrada, desplegada y verificada el 25 de
+agosto de 2026. Ver [`CIERRE-FASE-2.md`](CIERRE-FASE-2.md).
 
 Orden: primero lo que más se parece a un fallo, luego lo cosmético.
 
@@ -149,11 +152,19 @@ estadísticas por categoría y los informes. Es una transferencia de deuda.
 
 **Diseño completo en [`DISENO-TRASLADO-SALDO.md`](DISENO-TRASLADO-SALDO.md).**
 
-Estado: **diseñado, no implementado.** No debe implementarse mientras el CI de
-SQL y las políticas RLS sigan sin estar verdes. Ya está comprobado que el
-modelo `group_members` y las políticas propuestas **no impiden** implementarlo
-después; de hecho `group_members` es lo que hace posible la condición «solo
-grupos donde estén las dos personas», que hoy no se podría comprobar.
+Enunciado, como función pendiente independiente:
+
+> **Trasladar saldo entre grupos sin convertirlo en gasto ni alterar las
+> estadísticas históricas.**
+
+Estado: **diseñado, no implementado. Ya no está bloqueado.** La condición que lo
+frenaba —que el CI de SQL y las políticas RLS estuvieran verdes— se cumplió con
+el despliegue del 25 de agosto de 2026 (ver [`CIERRE-FASE-2.md`](CIERRE-FASE-2.md)).
+`group_members` está en producción con las seis membresías, que es justo lo que
+hace comprobable la condición «solo grupos donde estén las dos personas».
+
+Es una función por sí sola: no depende de los grupos multipersona (§0.a) ni de
+mover gastos entre grupos (§0.c), y no debería mezclarse con ellos.
 
 ---
 

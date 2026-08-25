@@ -231,25 +231,36 @@ Conviene probarlo una vez dentro del Subtrabajo 2: demuestra que el volcado
 sirve de verdad para restaurar, que es justo lo que hará falta si algo sale mal
 en producción.
 
-Al terminar:
+Al terminar —y **solo** después de conservar cifrado el último respaldo y
+comprobar que se descifra de verdad, no solo que `gpg --list-packets` lo lee—:
 
 ```bash
-dropdb copia_validacion                 # o: docker rm -f copia-validacion
-shred -u copia-produccion.dump          # si no se conserva
+# El destino cifrado va FUERA del patrón que borra el glob de abajo.
+DESTINO="$HOME/.splitwise-respaldos-cifrados"; mkdir -p "$DESTINO"; chmod 700 "$DESTINO"
+gpg -c --output "$DESTINO/produccion-AAAAMMDD-hhmm.dump.gpg" "$RESPALDO"
+gpg --output /dev/null --decrypt "$DESTINO/…​.gpg"   # si esto falla, NO borres nada
+
+sudo -u postgres dropdb -p 5433 splitwise_validacion_fase2
+sudo -u postgres dropdb -p 5432 splitwise_validacion_fase2
+shred -u "$RESPALDO"
+rm -rf ~/.splitwise-fase2-*/
 ```
 
-Si se conserva, que sea **cifrada**, fuera de cualquier carpeta sincronizada, y
-con una fecha de borrado decidida.
+`gpg --list-packets` **no vale como verificación**: sobre un fichero cifrado y
+válido, sin la contraseña, devuelve código 2, y sobre uno corrupto tampoco
+distingue nada. El único que separa bueno de malo es el descifrado completo.
 
 ## 10. Lo que tiene que decidir o hacer Dani
 
-1. **Dónde se ejecuta**: una máquina con PostgreSQL 15 y `pg_dump`, o con
-   Docker. Aquí no hay ninguna de las dos cosas.
-2. **Si se anonimiza** la copia. Recomendado si va a durar más de una sesión.
-3. **Si estos archivos se suben** al repositorio. Están en la rama local
-   `fase-2/validacion-copia`, **sin empujar**.
-4. **Si la guarda debe integrarse** en `supabase/aplicar-migraciones.sh`. Ver
-   §11.
+> **Resuelto.** Este documento describe el procedimiento tal y como se preparó
+> y después se ejecutó. La copia se creó y validó, y producción se migró y
+> desplegó el 25 de agosto de 2026 — ver [`CIERRE-FASE-2.md`](CIERRE-FASE-2.md).
+> Estos archivos están en `main`, y las herramientas (`psql`, `pg_dump` y
+> `pg_restore` 17) quedaron instaladas en la máquina de trabajo.
+
+Queda **una sola decisión abierta**: cuándo eliminar las copias locales y los
+volcados, y cuánto tiempo conservar cifrado el último respaldo. Ver §9. **No se
+ha borrado nada**: espera autorización expresa.
 
 ## 11. Sobre integrar la guarda en el ejecutor
 
