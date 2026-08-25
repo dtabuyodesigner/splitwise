@@ -132,7 +132,7 @@ jobs:
           # supabase/aplicar-migraciones.sh usará en producción.
           for paso in migrations/0001_baseline_esquema lotes/pertenencia \
                       migrations/0003_restricciones_indices migrations/0004_rls \
-                      migrations/0005_realtime; do
+                      migrations/0005_realtime migrations/0006_rls_viajes; do
             echo "── aplicando $paso.sql" | tee -a /tmp/salida-sql.log
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log
@@ -159,7 +159,7 @@ jobs:
           echo "── reaplicando las migraciones ──" | tee -a /tmp/salida-sql.log
           for paso in migrations/0001_baseline_esquema lotes/pertenencia \
                       migrations/0003_restricciones_indices migrations/0004_rls \
-                      migrations/0005_realtime; do
+                      migrations/0005_realtime migrations/0006_rls_viajes; do
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
           done
@@ -325,7 +325,7 @@ jobs:
       - name: Aplicar el resto de migraciones
         run: |
           set -eo pipefail
-          for f in 0003_restricciones_indices 0004_rls 0005_realtime; do
+          for f in 0003_restricciones_indices 0004_rls 0005_realtime 0006_rls_viajes; do
             echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
@@ -335,6 +335,16 @@ jobs:
         run: |
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/97_frontera_viajes_despues.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: La aplicación de viajes queda cerrada
+        env:
+          PGPASSWORD: desechable
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: desechable
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/97b_seguridad_viajes.sql 2>&1 | tee -a /tmp/salida-sql.log
 
       - name: Comprobar el esquema y que no quedan políticas permisivas
         run: |
