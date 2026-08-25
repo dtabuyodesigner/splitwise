@@ -48,15 +48,38 @@ begin
     perform pg_temp.ok('P2', 'ninguna sobrecarga de las RPC del traslado queda expuesta');
 
     -- Y los privilegios por defecto no vuelven a abrirlas.
-    if exists (select 1 from pg_default_acl d
-                left join pg_namespace n on n.oid = d.defaclnamespace
-                join aclexplode(d.defaclacl) a on true
-                join pg_roles r on r.oid = a.grantee
-               where d.defaclobjtype = 'f' and n.nspname = 'public'
-                 and r.rolname = 'anon' and a.privilege_type = 'EXECUTE') then
-        raise exception '[P3] FALLA — los privilegios por defecto siguen dando EXECUTE a anon';
-    end if;
-    perform pg_temp.ok('P3', 'las funciones nuevas ya no nacerán abiertas a anon');
+    --
+    -- Se enumera QUIÉN los deja. La primera versión de esta comprobación
+    -- solo decía «siguen dando EXECUTE a anon», y con eso no se sabía que el
+    -- culpable era la entrada de `supabase_admin` y no la de `postgres`:
+    -- hubo que diagnosticarlo aparte. Un fallo que no dice de dónde viene
+    -- cuesta otra ronda entera.
+    declare
+        culpables text;
+    begin
+        select string_agg(format('%s → %s', coalesce(d.rol, '(rol desconocido)'), d.quien), '; ')
+          into culpables
+          from (
+            select (select r2.rolname from pg_roles r2 where r2.oid = da.defaclrole) as rol,
+                   coalesce(r.rolname, 'PUBLIC') as quien
+              from pg_default_acl da
+              join pg_namespace ns on ns.oid = da.defaclnamespace
+              join aclexplode(da.defaclacl) a on true
+              left join pg_roles r on r.oid = a.grantee
+             where da.defaclobjtype = 'f' and ns.nspname = 'public'
+               and a.privilege_type = 'EXECUTE'
+               and (a.grantee = 0 or r.rolname in ('anon', 'authenticated'))
+          ) d;
+
+        if culpables is not null then
+            raise exception
+                '[P3] FALLA — privilegios por defecto abiertos en public (rol creador → beneficiario): %',
+                culpables;
+        end if;
+    end;
+    perform pg_temp.ok('P3',
+        'ningún rol creador concede EXECUTE por defecto a anon ni a authenticated '
+        '(PUBLIC no se puede quitar de los valores por defecto: lo cubre P1)');
 end $$;
 
 -- ── anon: la puerta está cerrada, y falla por eso ────────────
@@ -173,12 +196,113 @@ begin
     perform pg_temp.ok('P11', 'el alta de usuarios sigue creando su perfil');
 end $$;
 
+-- ── Qué reciben las funciones FUTURAS, las cree quien las cree ──
+--
+-- Lo que se comprueba aquí es lo que de verdad se puede garantizar, ni una
+-- palabra más:
+--
+--   · que NO reciben concesión DIRECTA a `anon`;
+--   · que NO reciben concesión DIRECTA a `authenticated`;
+--   · que `authenticated` solo llega tras un GRANT explícito.
+--
+-- Lo que NO se comprueba, porque PostgreSQL no permite garantizarlo: que
+-- nazcan cerradas a PUBLIC. `alter default privileges ... revoke execute on
+-- functions from public` BORRA la fila de `pg_default_acl` y devuelve el
+-- esquema al valor de serie, que es precisamente esa concesión. Verificado.
+--
+-- De eso se encarga P1, que recorre todas las funciones existentes y falla
+-- si alguna es ejecutable por PUBLIC o por anon. La regla, entonces, es de
+-- disciplina y la impone el CI:
+--
+--     create function ...;
+--     revoke all on function <firma> from public, anon;
+--     grant execute on function <firma> to <rol previsto>;
+do $$
+declare
+    d       record;
+    creados integer := 0;
+    nombre  text;
+    fallos  text := '';
+begin
+    for d in
+        select coalesce((select r.rolname from pg_roles r where r.oid = da.defaclrole), 'postgres') as rol
+          from pg_default_acl da
+          join pg_namespace ns on ns.oid = da.defaclnamespace
+         where da.defaclobjtype = 'f' and ns.nspname = 'public'
+        union
+        select current_user
+    loop
+        if d.rol <> current_user and not pg_has_role(current_user, d.rol, 'member') then
+            raise notice '  (se omite %: no se puede asumir ese rol)', d.rol;
+            continue;
+        end if;
+
+        nombre := 'prueba_futura_' || replace(d.rol, '-', '_');
+        begin
+            execute format('set local role %I', d.rol);
+            execute format(
+                'create or replace function public.%I() returns integer '
+                'language sql immutable as $f$ select 1 $f$', nombre);
+            execute 'reset role';
+        exception when insufficient_privilege then
+            execute 'reset role';
+            raise notice '  (se omite %: no puede crear funciones en public)', d.rol;
+            continue;
+        end;
+        creados := creados + 1;
+
+        -- Concesión DIRECTA a anon: no puede haberla. Se mira el acl, no el
+        -- privilegio efectivo, porque el efectivo incluye lo que llega por
+        -- PUBLIC y eso ya se sabe que está.
+        if exists (select 1 from pg_proc p
+                    join pg_namespace ns on ns.oid = p.pronamespace
+                    join aclexplode(p.proacl) a on true
+                    join pg_roles r on r.oid = a.grantee
+                   where ns.nspname = 'public' and p.proname = nombre
+                     and r.rolname = 'anon' and a.privilege_type = 'EXECUTE') then
+            fallos := fallos || format(' %s: concesión directa a anon;', d.rol);
+        end if;
+
+        if exists (select 1 from pg_proc p
+                    join pg_namespace ns on ns.oid = p.pronamespace
+                    join aclexplode(p.proacl) a on true
+                    join pg_roles r on r.oid = a.grantee
+                   where ns.nspname = 'public' and p.proname = nombre
+                     and r.rolname = 'authenticated' and a.privilege_type = 'EXECUTE') then
+            fallos := fallos || format(' %s: concesión directa a authenticated;', d.rol);
+        end if;
+
+        -- Y tras revocar PUBLIC —el paso que cada migración tiene que hacer
+        -- a mano— `authenticated` no debe llegar hasta su GRANT explícito.
+        execute format('revoke all on function public.%I() from public, anon', nombre);
+        if has_function_privilege('authenticated', format('public.%I()', nombre), 'execute') then
+            fallos := fallos || format(' %s: authenticated llega sin GRANT;', d.rol);
+        end if;
+        execute format('grant execute on function public.%I() to authenticated', nombre);
+        if not has_function_privilege('authenticated', format('public.%I()', nombre), 'execute') then
+            fallos := fallos || format(' %s: authenticated no llega ni con GRANT;', d.rol);
+        end if;
+
+        execute format('drop function public.%I()', nombre);
+    end loop;
+
+    if creados = 0 then
+        raise exception '[P12] FALLA — no se ha podido crear ninguna función de prueba';
+    end if;
+    if fallos <> '' then
+        raise exception '[P12] FALLA — concesiones por defecto indebidas:%', fallos;
+    end if;
+    perform pg_temp.ok('P12',
+        format('las funciones futuras no reciben concesión directa a anon ni a authenticated bajo los %s rol(es) creador(es), y authenticated solo llega con GRANT explícito',
+               creados));
+end $$;
+
 do $$
 declare n integer;
 begin
     select count(*) into n from pr;
-    if n <> 11 then
-        raise exception 'Se esperaban 11 comprobaciones y han corrido %', n;
+    if n <> 12 then
+        raise exception 'Se esperaban 12 comprobaciones y han corrido %', n;
     end if;
     raise notice 'Privilegios de funciones: % comprobaciones superadas', n;
 end $$;

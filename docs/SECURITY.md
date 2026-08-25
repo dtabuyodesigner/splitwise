@@ -291,3 +291,56 @@ Si la clave `service_role` o la contraseña de la base de datos se filtran:
 4. La clave `anon` **no** hace falta rotarla por estar publicada: es pública
    por diseño. Sí hace falta si se descubre que RLS estaba desactivada,
    porque entonces habrá que asumir que los datos han estado accesibles.
+
+---
+
+## Toda función nueva: la regla, y por qué hace falta
+
+**PostgreSQL concede `EXECUTE` a `PUBLIC` sobre cada función que se crea**, y
+`anon` lo hereda. Eso **no se puede desactivar** desde los privilegios por
+defecto del esquema: comprobado que
+
+```sql
+alter default privileges in schema public revoke execute on functions from public;
+```
+
+**borra** la fila de `pg_default_acl` y devuelve el esquema al valor de serie,
+que es precisamente esa concesión. La orden se acepta y no hace nada.
+
+Por eso, **cada función nueva del proyecto lleva sus tres líneas**:
+
+```sql
+create function public.lo_que_sea(...) ... ;
+
+revoke all on function public.lo_que_sea(...) from public, anon;
+grant execute on function public.lo_que_sea(...) to authenticated;   -- solo si toca
+```
+
+El `grant` es deliberado y va uno por uno: exponer una función tiene que ser
+una decisión, no un descuido. Así es exactamente como `trasladar_saldo` acabó
+al alcance del rol anónimo — el incidente E12.
+
+### Quién lo hace cumplir
+
+`supabase/pruebas/106_ninguna_funcion_abierta.sql` recorre **todas** las
+funciones de `public` y falla si alguna es ejecutable por `PUBLIC` o por
+`anon`. Se ejecuta en dos sitios:
+
+- en el **CI**, tras aplicar todas las migraciones;
+- como **última puerta de `aplicar-migraciones.sh`**, así que un despliegue
+  con una función abierta no se da por bueno.
+
+La garantía no está en el esquema: está en esa comprobación. Es menos elegante
+que un ajuste de configuración, pero es lo que de verdad se puede cumplir.
+
+### Limitación residual, declarada
+
+Una función creada **a mano** fuera de las migraciones —desde el editor SQL de
+Supabase, por ejemplo— nacería abierta a `PUBLIC` hasta que `106` la detecte en
+el siguiente despliegue o pase del CI. No bloquea nada porque las funciones de
+esta aplicación se gestionan por migraciones, pero conviene saberlo: si alguien
+crea una función a mano, tiene que escribir el `revoke` a mano también.
+
+Se descartó a propósito un **event trigger** que revocara en cada
+`CREATE FUNCTION`: necesita superusuario, cambia el comportamiento global de la
+base y afectaría también a lo que cree la propia Supabase.

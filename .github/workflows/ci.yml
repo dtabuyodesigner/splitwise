@@ -134,7 +134,8 @@ jobs:
                       migrations/0003_restricciones_indices migrations/0004_rls \
                       migrations/0005_realtime migrations/0006_rls_viajes \
                       migrations/0007_traslado_de_saldo \
-                      migrations/0008_privilegios_de_funciones; do
+                      migrations/0008_privilegios_de_funciones \
+                      migrations/0009_privilegios_por_defecto; do
             echo "── aplicando $paso.sql" | tee -a /tmp/salida-sql.log
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log
@@ -163,7 +164,8 @@ jobs:
                       migrations/0003_restricciones_indices migrations/0004_rls \
                       migrations/0005_realtime migrations/0006_rls_viajes \
                       migrations/0007_traslado_de_saldo \
-                      migrations/0008_privilegios_de_funciones; do
+                      migrations/0008_privilegios_de_funciones \
+                      migrations/0009_privilegios_por_defecto; do
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
           done
@@ -329,7 +331,7 @@ jobs:
       - name: Aplicar el resto de migraciones
         run: |
           set -eo pipefail
-          for f in 0003_restricciones_indices 0004_rls 0005_realtime 0006_rls_viajes 0007_traslado_de_saldo 0008_privilegios_de_funciones; do
+          for f in 0003_restricciones_indices 0004_rls 0005_realtime 0006_rls_viajes 0007_traslado_de_saldo 0008_privilegios_de_funciones 0009_privilegios_por_defecto; do
             echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
@@ -365,6 +367,8 @@ jobs:
         run: |
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/105_privilegios_de_funciones.sql 2>&1 | tee -a /tmp/salida-sql.log
+          # La garantia: ninguna funcion de public abierta a PUBLIC ni anon.
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/106_ninguna_funcion_abierta.sql 2>&1 | tee -a /tmp/salida-sql.log
 
       - name: Comprobar el esquema y que no quedan políticas permisivas
         run: |

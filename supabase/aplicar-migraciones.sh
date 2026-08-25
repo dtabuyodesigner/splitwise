@@ -46,6 +46,7 @@ PASOS=(
     "migrations/0006_rls_viajes.sql"
     "migrations/0007_traslado_de_saldo.sql"
     "migrations/0008_privilegios_de_funciones.sql"
+    "migrations/0009_privilegios_por_defecto.sql"
 )
 
 echo "Migraciones a aplicar, en este orden:"
@@ -81,4 +82,13 @@ done
 
 echo
 echo "Migraciones aplicadas. Comprueba ahora el esquema resultante:"
+# Puerta final. PostgreSQL concede EXECUTE a PUBLIC en toda funcion nueva y
+# eso no se puede desactivar con `alter default privileges`: si una migracion
+# se olvida de su revoke, la funcion queda al alcance del rol anonimo. Esto lo
+# caza aqui, antes de dar el despliegue por bueno.
+echo
+echo "== Comprobando que ninguna funcion ha quedado abierta =="
+psql "$URL" -v ON_ERROR_STOP=1 -f "$AQUI/pruebas/106_ninguna_funcion_abierta.sql" \
+  || { echo "DESPLIEGUE INCOMPLETO: hay funciones abiertas a PUBLIC o anon." >&2; exit 1; }
+
 echo "  psql \"\$URL\" -v ON_ERROR_STOP=1 -f supabase/pruebas/99_comprobaciones.sql"
