@@ -6,9 +6,10 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 import {
-    SUPABASE_URL, SUPABASE_ANON_KEY, VERSION_APP, GOOGLE_ACTIVO, TOPE_FIEL,
-    CATEGORIES, CATEGORY_META,
+    SUPABASE_URL, SUPABASE_ANON_KEY, CLAVE_SESION, VERSION_APP, GOOGLE_ACTIVO,
+    TOPE_FIEL, CATEGORIES, CATEGORY_META,
 } from './config.js';
+import { INSTANCIA, instanciaConfigurada } from './instancia.js';
 import { formatoDinero, aNumero } from './dinero.js';
 import { hoyISO, tituloDia } from './fechas.js';
 import { escapar } from './html.js';
@@ -32,9 +33,23 @@ import { prepararFilaGasto } from './gastos.js';
 import { analizarCSV, construirCSV } from './csv.js';
 import { interpretarDictado } from './voice.js';
 
+// `storageKey` explícito: dos instancias comparten origen y, por tanto,
+// localStorage. Sin esto, entrar en una podría arrastrar la sesión de la otra.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: CLAVE_SESION,
+    },
 });
+
+if (!instanciaConfigurada()) {
+    console.warn(
+        `[gastos] La instancia "${INSTANCIA.id}" no tiene proyecto de Supabase configurado. ` +
+        'Rellena supabaseUrl y supabaseAnonKey en instancias/registro.js.'
+    );
+}
 
 // ------------------------------------------------------------
 //  Estado
@@ -2554,7 +2569,11 @@ function mostrarAcceso() {
 async function iniciar() {
     conectarEventos();
     pintarCategorias();
-    $('etiquetaVersion').textContent = VERSION_APP;
+    // La instancia se muestra junto a la versión: con varias apps instaladas
+    // y el mismo icono, es la única forma de saber cuál se está mirando.
+    $('etiquetaVersion').textContent = INSTANCIA.ruta
+        ? `${VERSION_APP} · ${INSTANCIA.id}`
+        : VERSION_APP;
 
     const { data } = await sb.auth.getSession();
     estado.sesion = data.session;

@@ -1,15 +1,19 @@
 {
   "name": "splitwise-gastos-compartidos",
-  "version": "17.0.0",
+  "version": "18.0.0",
   "private": true,
   "type": "module",
-  "description": "PWA de gastos compartidos. HTML, CSS y JavaScript vanilla sobre Supabase.",
+  "description": "PWA de gastos compartidos, multi-instancia. HTML, CSS y JavaScript vanilla sobre Supabase.",
   "scripts": {
     "test": "node --test tests/",
     "test:watch": "node --test --watch tests/",
+    "instancias": "node tools/instancias.mjs",
+    "instancias:check": "node tools/instancias.mjs --check",
     "verificar": "node tools/verificar.mjs",
     "iconos": "node tools/generar-iconos.mjs",
     "servir": "node tools/servir.mjs"
   },
-  "engines": { "node": ">=20.11" }
+  "engines": {
+    "node": ">=20.11"
+  }
 }

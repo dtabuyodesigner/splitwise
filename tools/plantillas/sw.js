@@ -1,5 +1,5 @@
 // ============================================================
-//  Service worker · instancia "dani"
+//  Service worker · instancia "{{ID}}"
 //
 //  GENERADO por tools/instancias.mjs a partir de
 //  tools/plantillas/sw.js + instancias/registro.js
@@ -32,45 +32,16 @@
 //     estas hayan registrado su propio service worker.
 // ============================================================
 
-const PREFIJO = 'gastos-';
-const VERSION = PREFIJO + 'v18';
+const PREFIJO = '{{PREFIJO_CACHE}}';
+const VERSION = PREFIJO + '{{VERSION_APP}}';
 
 /** Solo cachés de ESTA instancia: `<prefijo>v<numero>`, nada más. */
 const MIAS = new RegExp('^' + PREFIJO.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&') + 'v\\d+$');
 
 /** Primer segmento de ruta de las demás instancias, relativo a este ámbito. */
-const RUTAS_AJENAS = ["alba"];
+const RUTAS_AJENAS = {{RUTAS_AJENAS}};
 
-const ARCHIVOS = [
-    "./",
-    "./index.html",
-    "./manifest.json",
-    "./styles.css",
-    "./js/almacen.js",
-    "./js/app.js",
-    "./js/balances.js",
-    "./js/config.js",
-    "./js/csv.js",
-    "./js/dinero.js",
-    "./js/errores.js",
-    "./js/fechas.js",
-    "./js/gastos.js",
-    "./js/html.js",
-    "./js/instancia.js",
-    "./js/miembros.js",
-    "./js/mutaciones.js",
-    "./js/offline-queue.js",
-    "./js/supabase-data.js",
-    "./js/traslados.js",
-    "./js/voice.js",
-    "./instancias/registro.js",
-    "./icons/apple-touch-180.png",
-    "./icons/favicon-32.png",
-    "./icons/icon-192.png",
-    "./icons/icon-512.png",
-    "./icons/maskable-192.png",
-    "./icons/maskable-512.png"
-];
+const ARCHIVOS = {{ARCHIVOS}};
 
 // Se guardan al vuelo la primera vez que se piden.
 const EXTERNOS = [

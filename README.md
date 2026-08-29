@@ -37,7 +37,9 @@ Node 20.11 o superior para las pruebas y las herramientas.
 |---|---|
 | `npm test` | Pruebas automatizadas (runner nativo de Node, sin dependencias) |
 | `npm run test:watch` | Igual, reejecutando al guardar |
-| `npm run verificar` | Coherencia de versión, service worker, módulos e iconos |
+| `npm run instancias` | Regenera los archivos propios de cada instancia |
+| `npm run instancias:check` | Igual, sin escribir: falla si hay diferencias |
+| `npm run verificar` | Coherencia de versión, service worker, módulos e iconos, en todas las instancias |
 | `npm run iconos` | Regenera los PNG de `icons/` |
 | `npm run servir` | Servidor estático de desarrollo |
 
@@ -46,24 +48,49 @@ falta ningún secreto: nada de esto habla con Supabase.
 
 ---
 
+## Instancias
+
+La aplicación se despliega en **instancias independientes**: la misma base de
+código sirviendo a personas distintas, sin compartir ni un dato.
+
+| Instancia | URL | Para quién |
+|---|---|---|
+| `dani` | `/` | Dani y Pilar |
+| `alba` | `/alba/` | Alba |
+
+Lo que cambia entre instancias es el proyecto de Supabase y las claves de
+almacenamiento. `styles.css`, `js/` e `icons/` son **compartidos**: no hay una
+copia de la aplicación por instancia.
+
+Crear una nueva son dos pasos: crear su proyecto de Supabase y ejecutar el
+workflow **Nueva instancia** desde Actions (funciona desde el móvil). Todo
+está en **[`docs/MULTI-INSTANCIA.md`](docs/MULTI-INSTANCIA.md)**.
+
+---
+
 ## Estructura
 
 ```
-index.html              markup: pantalla de acceso, app y 5 hojas modales
-styles.css              todos los estilos, con modo oscuro
-manifest.json           PWA
-sw.js                   service worker
-icons/                  PNG reales 192/512 + maskable, generados por script
+instancias/registro.js  ÚNICA fuente de verdad de qué instancias existen
+styles.css              todos los estilos, con modo oscuro     ┐
+icons/                  PNG reales 192/512 + maskable          ├ compartidos
+js/                     los módulos de la aplicación           ┘
+
+index.html              GENERADO · instancia dani (raíz)
+manifest.json           GENERADO · instancia dani
+sw.js                   GENERADO · instancia dani
+alba/                   GENERADOS · instancia alba
 
 js/
-  config.js             constantes, claves, categorías, versión
+  instancia.js          resuelve qué instancia se está ejecutando
+  config.js             constantes, categorías, versión
   dinero.js             lectura de importes, redondeo a céntimos, formato
   fechas.js             hoy/ayer, títulos de día, lectura de fechas
   html.js               escapado de HTML seguro también en atributos
   errores.js            clasificación de errores: red / sesión / permiso / …
   balances.js           cálculo de saldos y totales (puro)
   miembros.js           pertenencia a grupos y quién es "la otra persona"
-  almacen.js            localStorage aislado por usuario
+  almacen.js            localStorage aislado por usuario Y por instancia
   offline-queue.js      cola de envío offline
   supabase-data.js      carga paginada completa
   mutaciones.js         alta, edición y borrado con restauración
@@ -72,10 +99,20 @@ js/
   app.js                todo lo que toca el DOM
 
 tests/                  pruebas (node --test)
-tools/                  generador de iconos, verificador, servidor
+tools/
+  plantillas/           de aquí salen los archivos propios de cada instancia
+  instancias.mjs        generador de instancias
+  registrar-instancia.mjs  añade una entrada al registro
+  verificar.mjs         coherencia del proyecto
+  generar-iconos.mjs  servir.mjs
 supabase/migrations/    migraciones SQL versionadas, NO aplicadas
-docs/                   informes, seguridad, plan de migración, pendientes
+docs/                   informes, seguridad, multi-instancia, pendientes
 ```
+
+> `index.html`, `manifest.json` y `sw.js` —los de la raíz y los de cada
+> subcarpeta— **son generados**. No se editan a mano: `npm run instancias`
+> los reescribe y CI comprueba que no haya diferencias. Para cambiarlos, se
+> cambia la plantilla o el registro.
 
 Los módulos de `js/` **excepto `app.js`** son puros: no tocan el DOM ni la
 red, así que se pueden importar desde Node y probar directamente. Toda la

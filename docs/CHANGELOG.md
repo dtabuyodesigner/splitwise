@@ -10,6 +10,67 @@ en `sw.js` y con `version` en `manifest.json`.
 
 ---
 
+## v18 — sin publicar · Multi-instancia
+
+`main` pendiente de SHA.
+Arquitectura en [`MULTI-INSTANCIA.md`](MULTI-INSTANCIA.md).
+
+### Añadido
+
+- **Instancias independientes.** La misma base de código sirve a despliegues
+  que no comparten ningún dato. Se añade la instancia `alba` en `/alba/`,
+  con proyecto de Supabase propio (`wspcrnqdoucohattians`). `instancias/registro.js` es la única
+  fuente de verdad; `js/instancia.js` resuelve cuál está activa.
+- `index.html`, `manifest.json` y `sw.js` pasan a ser **archivos generados**,
+  uno por instancia, a partir de `tools/plantillas/`. Se regeneran con
+  `npm run instancias` y CI falla si alguien los edita a mano. La aplicación
+  (`js/`, `styles.css`, `icons/`) no se duplica.
+- Workflow **Nueva instancia** (`workflow_dispatch`): registra, genera,
+  prueba y abre un pull request. Funciona desde el móvil, sin ordenador.
+  Rechaza una clave `service_role` descodificando el JWT.
+- `tools/registrar-instancia.mjs` y `tools/instancias.mjs`, con validación
+  del registro: ids y rutas repetidas, prefijos que se solapan y dos
+  instancias apuntando al mismo proyecto de Supabase.
+
+### Corregido
+
+Tres formas en que una instancia podía destruir datos de otra. `localStorage`
+y `caches` pertenecen al **origen**, no a la ruta, así que `/` y `/alba/` los
+comparten. Con prueba de regresión cada una en `tests/instancias.test.js`.
+
+- **`purgarOtrosUsuarios()` borraba la cola sin sincronizar de la otra
+  instancia** al entrar. Los prefijos pasan a ser por instancia y el
+  generador valida que ninguno sea prefijo de otro (`gastos.v2` frente a
+  `gastos.alba.v2`: el id va antes de la versión precisamente por esto).
+  Segundo cinturón: se exige que la clave tenga la forma
+  `<prefijo>.<user_id>.<nombre>` con un nombre conocido.
+- **El `activate` del service worker borraba la caché de la otra
+  instancia**, dejándola sin aplicación offline en cada despliegue. Cada
+  service worker solo borra cachés que encajen con `^<prefijo>v\d+$`.
+- **El service worker de la raíz respondía por `/alba/`** con su propio
+  `index.html` antes de que Alba registrara el suyo. Ahora conoce las rutas
+  ajenas y no las atiende.
+- `storageKey` explícito en `createClient`, para que las sesiones de dos
+  instancias no puedan cruzarse.
+
+### Compatibilidad
+
+- La instancia `dani` **conserva sus prefijos antiguos** (`gastos.v2`,
+  `gastos.correo`, `gastos-`), declarados de forma explícita en el registro.
+  Cambiarlos habría borrado la cola pendiente de Dani y Pilar y duplicado el
+  icono en sus pantallas de inicio. La raíz sigue siendo una instancia, no un
+  índice, por el mismo motivo.
+- `migrarDesdeEsquemaAntiguo()` solo adopta las claves heredadas si la
+  instancia es la heredada. Una instancia nueva ni las adopta ni las borra.
+
+### Interfaz
+
+- Las instancias en subcarpeta muestran su id junto al número de versión.
+  Con varias apps instaladas y el mismo icono, es la única forma de saber
+  cuál se está mirando.
+
+---
+
 ## v17 — 26 de agosto de 2026 · Fase 3
 
 `main` `88011b28c769246e74e78775e40e7030bbe6c033`.

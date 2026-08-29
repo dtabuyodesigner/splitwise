@@ -1,0 +1,37 @@
+{
+    "id": "./",
+    "name": "Gastos de Alba",
+    "short_name": "Gastos Alba",
+    "description": "Lo que pone cada uno y lo que queda por saldar.",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#14201F",
+    "theme_color": "#14201F",
+    "lang": "es",
+    "dir": "ltr",
+    "categories": ["finance", "productivity"],
+    "shortcuts": [
+        {
+            "name": "Añadir gasto",
+            "short_name": "Nuevo gasto",
+            "description": "Registra un nuevo gasto compartido",
+            "url": "./index.html?accion=nuevo-gasto",
+            "icons": [{ "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+        },
+        {
+            "name": "Saldar cuentas",
+            "short_name": "Saldar",
+            "description": "Registra un pago para saldar el balance",
+            "url": "./index.html?accion=saldar",
+            "icons": [{ "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+        }
+    ],
+    "icons": [
+        { "src": "../icons/icon-192.png",     "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "../icons/icon-512.png",     "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "../icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "../icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

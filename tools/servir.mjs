@@ -37,11 +37,28 @@ createServer(async (peticion, respuesta) => {
     }
 
     try {
+        let archivoFinal = archivo;
         const info = await stat(archivo);
-        if (info.isDirectory()) throw new Error('es un directorio');
-        const cuerpo = await readFile(archivo);
+
+        // Un directorio se sirve con su index.html, que es lo que hace
+        // GitHub Pages. Sin esto, `/alba/` daba 404 en local y solo en
+        // local: el fallo no aparecía hasta desplegar.
+        if (info.isDirectory()) {
+            archivoFinal = join(archivo, 'index.html');
+            const indice = await stat(archivoFinal);
+            if (!indice.isFile()) throw new Error('sin index.html');
+
+            // Redirección a la barra final: si no, las rutas relativas de
+            // dentro del HTML se resuelven un nivel más arriba del que toca.
+            if (!url.pathname.endsWith('/')) {
+                respuesta.writeHead(301, { Location: url.pathname + '/' }).end();
+                return;
+            }
+        }
+
+        const cuerpo = await readFile(archivoFinal);
         respuesta.writeHead(200, {
-            'Content-Type': TIPOS[extname(archivo)] || 'application/octet-stream',
+            'Content-Type': TIPOS[extname(archivoFinal)] || 'application/octet-stream',
             // Sin caché: en desarrollo interesa ver el último cambio siempre.
             'Cache-Control': 'no-store',
         });

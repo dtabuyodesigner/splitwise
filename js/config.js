@@ -4,21 +4,29 @@
 //  desde Node para las pruebas.
 // ============================================================
 
-export const SUPABASE_URL = 'https://cmkzcvfjgrgxwqjimtxa.supabase.co';
+import { INSTANCIA } from './instancia.js';
 
+export { INSTANCIA, ID_INSTANCIA } from './instancia.js';
+
+// Los valores propios de cada despliegue NO viven aquí: viven en
+// `instancias/registro.js` y los resuelve `js/instancia.js`. Este módulo los
+// reexporta para que el resto de la app siga importando de un único sitio.
+//
 // La clave `anon` es pública por diseño: viaja en cualquier cliente web.
 // Lo que protege los datos es RLS en el servidor, no el secreto de esta clave.
 // Ver docs/SECURITY.md.
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNta3pjdmZqZ3JneHdxamltdHhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NzU5NzAsImV4cCI6MjEwMDM1MTk3MH0.epSiwj0MO9WWfqETVoEt2E_ijNSzi4x0d-TmgDhAWhQ';
+export const SUPABASE_URL = INSTANCIA.supabaseUrl;
+export const SUPABASE_ANON_KEY = INSTANCIA.supabaseAnonKey;
+export const CLAVE_SESION = INSTANCIA.claveSesion;
 
 export const LOCALE = 'es-ES';
 export const CURRENCY = 'EUR';
 
 // VERSION_APP tiene que coincidir con VERSION en sw.js y con "version" en
 // package.json. `npm run verificar-version` lo comprueba, y CI lo ejecuta.
-export const VERSION_APP = 'v17';
+export const VERSION_APP = 'v18';
 
-export const GOOGLE_ACTIVO = false;
+export const GOOGLE_ACTIVO = INSTANCIA.googleActivo;
 export const TOPE_FIEL = 300;
 
 // Paginación de la carga inicial. PAGINA es el tamaño de cada `.range()`.

@@ -10,11 +10,24 @@
 //  `gastos.correo` sigue siendo global a propósito: se usa ANTES de
 //  saber quién entra, solo recuerda el último correo escrito.
 //
+//  AISLAMIENTO ENTRE INSTANCIAS
+//  `localStorage` es del ORIGEN, no de la ruta: `/` y `/alba/` comparten el
+//  mismo almacén. El user_id no basta para separarlas, y además
+//  `purgarOtrosUsuarios` habría borrado los datos de la otra instancia al
+//  entrar. Por eso el prefijo lo pone la instancia activa, y el registro
+//  garantiza que ningún prefijo sea prefijo de otro.
+//
+//  Esquema:  <prefijoAlmacen>.<user_id>.<nombre>
+//    dani →  gastos.v2.<user_id>.<nombre>       (heredado, se conserva)
+//    alba →  gastos.alba.v2.<user_id>.<nombre>
+//
 //  El almacén se inyecta (por defecto `localStorage`) para poder probarlo.
 // ============================================================
 
-export const PREFIJO = 'gastos.v2';
-export const CLAVE_CORREO = 'gastos.correo';
+import { INSTANCIA } from './instancia.js';
+
+export const PREFIJO = INSTANCIA.prefijoAlmacen;
+export const CLAVE_CORREO = INSTANCIA.claveCorreo;
 
 /** Claves del esquema antiguo, sin dueño conocido. */
 export const CLAVES_HEREDADAS = [
@@ -46,12 +59,13 @@ function almacenPorDefecto() {
     return almacenEnMemoria();
 }
 
-export function crearAlmacen(userId, almacen = almacenPorDefecto()) {
+export function crearAlmacen(userId, almacen = almacenPorDefecto(), prefijo = PREFIJO) {
     if (!userId) throw new Error('crearAlmacen necesita un user_id');
-    const clave = (nombre) => PREFIJO + '.' + userId + '.' + nombre;
+    const clave = (nombre) => prefijo + '.' + userId + '.' + nombre;
 
     return {
         userId,
+        prefijo,
         clave,
 
         leer(nombre, porDefecto = null) {
@@ -97,13 +111,22 @@ function todasLasClaves(almacen) {
     return claves;
 }
 
-/** Borra los datos locales de cualquier usuario distinto del indicado. */
-export function purgarOtrosUsuarios(userId, almacen = almacenPorDefecto()) {
+/**
+ * Borra los datos locales de cualquier usuario distinto del indicado
+ * DENTRO DE ESTA INSTANCIA. Nunca toca las claves de otra.
+ *
+ * Además de comprobar el prefijo, exige que lo que queda detrás tenga la
+ * forma exacta `<user_id>.<nombre>` con un `nombre` conocido. Es un segundo
+ * cinturón: aunque un día alguien registre un prefijo solapado, una clave
+ * ajena no tendrá esta forma y sobrevivirá.
+ */
+export function purgarOtrosUsuarios(userId, almacen = almacenPorDefecto(), prefijo = PREFIJO) {
     let borradas = 0;
     for (const k of todasLasClaves(almacen)) {
-        if (!k.startsWith(PREFIJO + '.')) continue;
-        const dueño = k.slice(PREFIJO.length + 1).split('.')[0];
-        if (dueño !== userId) {
+        if (!k.startsWith(prefijo + '.')) continue;
+        const partes = k.slice(prefijo.length + 1).split('.');
+        if (partes.length !== 2 || !NOMBRES.includes(partes[1])) continue;
+        if (partes[0] !== userId) {
             try { almacen.removeItem(k); borradas++; } catch { /* nada que hacer */ }
         }
     }
@@ -123,9 +146,13 @@ export function purgarOtrosUsuarios(userId, almacen = almacenPorDefecto()) {
  *
  * @returns {{adoptadas: number, descartadas: string[]}}
  */
-export function migrarDesdeEsquemaAntiguo(userId, almacen = almacenPorDefecto()) {
+export function migrarDesdeEsquemaAntiguo(userId, almacen = almacenPorDefecto(), prefijo = PREFIJO) {
     const resultado = { adoptadas: 0, descartadas: [] };
     if (!userId) return resultado;
+
+    // Las claves heredadas son de la instancia original. Una instancia nueva
+    // no debe adoptarlas ni borrarlas: no son suyas.
+    if (prefijo !== 'gastos.v2') return resultado;
 
     let colaAntigua = [];
     try {
@@ -134,7 +161,7 @@ export function migrarDesdeEsquemaAntiguo(userId, almacen = almacenPorDefecto())
     } catch { colaAntigua = []; }
 
     if (Array.isArray(colaAntigua) && colaAntigua.length) {
-        const propia = crearAlmacen(userId, almacen);
+        const propia = crearAlmacen(userId, almacen, prefijo);
         const actual = propia.leer('cola', []) || [];
         const adoptadas = colaAntigua.map((t) => ({
             ...t,

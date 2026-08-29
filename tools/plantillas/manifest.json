@@ -1,0 +1,37 @@
+{
+    "id": "{{ID_MANIFEST}}",
+    "name": "{{NOMBRE}}",
+    "short_name": "{{NOMBRE_CORTO}}",
+    "description": "{{LEMA}}",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#14201F",
+    "theme_color": "#14201F",
+    "lang": "es",
+    "dir": "ltr",
+    "categories": ["finance", "productivity"],
+    "shortcuts": [
+        {
+            "name": "Añadir gasto",
+            "short_name": "Nuevo gasto",
+            "description": "Registra un nuevo gasto compartido",
+            "url": "./index.html?accion=nuevo-gasto",
+            "icons": [{ "src": "{{BASE}}icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+        },
+        {
+            "name": "Saldar cuentas",
+            "short_name": "Saldar",
+            "description": "Registra un pago para saldar el balance",
+            "url": "./index.html?accion=saldar",
+            "icons": [{ "src": "{{BASE}}icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+        }
+    ],
+    "icons": [
+        { "src": "{{BASE}}icons/icon-192.png",     "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "{{BASE}}icons/icon-512.png",     "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "{{BASE}}icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "{{BASE}}icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

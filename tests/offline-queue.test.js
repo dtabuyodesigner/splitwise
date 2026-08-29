@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { crearAlmacen, migrarDesdeEsquemaAntiguo, purgarOtrosUsuarios } from '../js/almacen.js';
+import { crearAlmacen, migrarDesdeEsquemaAntiguo, purgarOtrosUsuarios, PREFIJO } from '../js/almacen.js';
 import { ColaOffline, TIPO, ejecutarTarea, MAX_INTENTOS } from '../js/offline-queue.js';
 import { CLASE } from '../js/errores.js';
 import {
@@ -227,7 +227,7 @@ test('una tarea con owner_user_id ajeno se rechaza aunque esté en la clave prop
     const sb = crearSupabaseFalso();
     const bruto = crearAlmacenFalso();
     // Cola de A manipulada a mano con una tarea que dice ser de B.
-    bruto.setItem('gastos.v2.' + A + '.cola', JSON.stringify([
+    bruto.setItem(PREFIJO + '.' + A + '.cola', JSON.stringify([
         { tipo: TIPO.INSERTAR, tabla: 'expenses', fila: gasto('c1'), owner_user_id: B },
     ]));
 
@@ -247,8 +247,8 @@ test('al entrar con B se borran los datos locales de A', () => {
 
     purgarOtrosUsuarios(B, bruto);
 
-    assert.equal(bruto.getItem('gastos.v2.' + A + '.cache'), null);
-    assert.equal(bruto.getItem('gastos.v2.' + A + '.cola'), null);
+    assert.equal(bruto.getItem(PREFIJO + '.' + A + '.cache'), null);
+    assert.equal(bruto.getItem(PREFIJO + '.' + A + '.cola'), null);
 });
 
 test('la migración desde el esquema antiguo adopta la cola y borra lo derivado', () => {
