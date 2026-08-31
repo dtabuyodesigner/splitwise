@@ -181,6 +181,13 @@ resultado**: las 41 aserciones de `98_seguridad_dml.sql` y las 19 de
 
 ## Pendientes que ha dejado F1
 
+> **Estado tras el merge de F0/F1** (31 ago 2026). Las migraciones `0010` y
+> `0011`, las pruebas `110`/`111`/`112` y el ajuste de CI están fusionados en
+> `main` (merge `cc8d915`, PR #6), con CI en verde. **No se ha aplicado nada a
+> producción** ni se ha desplegado Supabase; el frontend no cambió. Siguiente
+> paso: validación en copia y aplicación controlada de `0010`+`0011` según
+> `supabase/README.md` §3 y §6.
+
 ### 18. Cualquier MIEMBRO puede generar una invitación, no solo el propietario
 
 Es lo que permitía la política que 0010 retiró, así que no amplía las
