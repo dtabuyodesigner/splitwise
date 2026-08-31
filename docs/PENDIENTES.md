@@ -99,6 +99,104 @@ migración.
 
 ---
 
+## Seguridad · dos hallazgos cerrados en F0
+
+Los detectó la auditoría previa al sistema de invitaciones, ejecutando
+consultas reales contra una copia desechable. Los cierra
+`0010_consentimiento_y_oraculo.sql`, y las pruebas de
+`110_invitaciones.sql` fallan si se quita cualquiera de las tres piezas del
+arreglo —se comprobó revirtiéndolas una a una—.
+
+### H1 · Se podía meter a alguien en un grupo sin su consentimiento · **cerrado**
+
+La política `miembros_invitar` exigía solo ser miembro, sin mirar QUÉ
+`user_id` se insertaba: un `POST /rest/v1/group_members` metía a cualquiera
+en tu grupo. La víctima veía de pronto un grupo al que nunca se apuntó, y su
+perfil quedaba visible para desconocidos. No exponía sus gastos, pero es un
+fallo de consentimiento, y habría dejado sin sentido el sistema de
+invitaciones.
+
+Tenía **dos puertas**, no una. La segunda apareció al implementar el arreglo:
+`miembros_cambiar_rol` acotaba quién podía actualizar —el propietario— pero
+no qué columnas, así que un `update group_members set user_id = '<víctima>'`
+sustituía a un miembro por cualquier persona.
+
+Cómo queda: la política de INSERT solo deja **apuntarse a uno mismo**, y solo
+en un grupo que hayas creado tú. El UPDATE pasa a ser un privilegio **por
+columnas**: `grant update (role)`, nada más. Entrar en un grupo por
+invitación es competencia exclusiva de `aceptar_invitacion()`, que es
+`SECURITY DEFINER` y no pasa por ninguna política.
+
+Por qué el privilegio de columna y no una política: en un UPDATE, `using` ve
+la fila antigua y `with check` la nueva, y ninguna expresión puede ver las
+dos a la vez. «Y además `user_id` no ha cambiado» no se puede escribir con
+RLS.
+
+### H2 · `es_miembro()` y `es_owner()` eran un oráculo de pertenencia · **cerrado**
+
+Están concedidas a `authenticated` porque las políticas las invocan, y eso
+las convertía también en RPC llamables a mano. Respondían la verdad sobre
+**cualquier** par (grupo, persona):
+
+```
+es_miembro('<grupo ajeno>', '<persona ajena>')  →  t
+select * from groups                            →  0 filas
+```
+
+Gravedad baja —hacen falta dos UUID que no se adivinan, y `profiles_leer`
+impide enumerarlos— pero era información sin ninguna razón de ser.
+
+Cómo queda: solo responden sobre uno mismo, o sobre terceros cuando quien
+pregunta ya pertenece a ese grupo, y entonces no dicen nada que
+`miembros_leer` no enseñe ya. En cualquier otro caso devuelven `false`.
+
+Se devuelve `false` y no una excepción a propósito: estas funciones viven
+dentro de políticas RLS, y una excepción abortaría la consulta del usuario
+legítimo en vez de filtrar una fila. Además `false` es el valor que la
+política habría dado igualmente, así que **ninguna política cambia de
+resultado**: las 41 aserciones de `98_seguridad_dml.sql` y las 19 de
+`102_validar_0007.sql` siguen pasando sin tocar una línea.
+
+---
+
+## Pendientes que ha dejado F1
+
+### 18. Cualquier MIEMBRO puede generar una invitación, no solo el propietario
+
+Es lo que permitía la política que 0010 retiró, así que no amplía las
+capacidades de nadie. Pero significa que un amigo al que Alba invita puede
+traer a más gente a su grupo.
+
+Restringirlo a `owner` es **una línea** de `crear_invitacion()`, marcada en el
+propio archivo. **Conviene decidirlo antes de F2**, porque cambia lo que la
+interfaz tiene que enseñar.
+
+### 19. El token viaja como parámetro al aceptar
+
+Al crearla, el token solo va en la RESPUESTA, así que no puede acabar en el
+registro de sentencias. Al **aceptarla** sí es un parámetro de la llamada. Con
+la configuración normal de Supabase eso no se registra, pero si alguna vez se
+activara `log_statement = 'all'` los tokens quedarían en el registro.
+
+Mitigación real: caducan a los 7 días y se pueden revocar.
+
+### 20. No hay límite de invitaciones por grupo
+
+Un miembro puede crear tantos enlaces como quiera. No es un problema de
+seguridad —cada uno hay que compartirlo a mano— pero un límite razonable
+(por ejemplo, 20 activas por grupo) evitaría que la lista se vuelva
+inmanejable. Se puede añadir sin tocar el esquema.
+
+### 21. `handle_new_user()` asigna `buganvilla` a todo el mundo menos al primero
+
+El color se decide con `case when (select count(*) from profiles) = 0 then
+'laurel' else 'buganvilla' end`. Con dos personas funcionaba; con Alba y sus
+amigos, todos menos Dani serán del mismo color. Es cosmético, **pero
+`0006_rls_viajes.sql` usa el color como criterio de identidad** en su
+backfill, así que conviene revisarlo antes de que haya más cuentas.
+
+---
+
 ## Peticiones de producto pendientes de la fase siguiente
 
 Quedan estas dos, **separadas y sin implementar**. Ninguna depende de la

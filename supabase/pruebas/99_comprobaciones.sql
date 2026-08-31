@@ -82,7 +82,14 @@ declare
     esperadas constant text[] := array[
         'profiles_leer', 'profiles_modificar_el_mio', 'profiles_crear_el_mio',
         'groups_leer_los_mios', 'groups_crear', 'groups_modificar', 'groups_borrar',
-        'miembros_leer', 'miembros_invitar', 'miembros_cambiar_rol', 'miembros_expulsar',
+        -- `miembros_invitar` la retiró 0010: permitía insertar CUALQUIER
+        -- user_id, o sea, meter a otra persona en tu grupo sin su
+        -- consentimiento. La sustituye `miembros_apuntarme_a_mi_grupo`, que
+        -- solo deja apuntarse a uno mismo. Entrar por invitación es
+        -- competencia exclusiva de `aceptar_invitacion()`, que es
+        -- SECURITY DEFINER y no pasa por ninguna política.
+        'miembros_leer', 'miembros_apuntarme_a_mi_grupo',
+        'miembros_cambiar_rol', 'miembros_expulsar',
         'gastos_leer', 'gastos_crear', 'gastos_modificar', 'gastos_borrar',
         'liquidaciones_leer', 'liquidaciones_crear', 'liquidaciones_modificar',
         'liquidaciones_borrar'

@@ -135,7 +135,9 @@ jobs:
                       migrations/0005_realtime migrations/0006_rls_viajes \
                       migrations/0007_traslado_de_saldo \
                       migrations/0008_privilegios_de_funciones \
-                      migrations/0009_privilegios_por_defecto; do
+                      migrations/0009_privilegios_por_defecto \
+                      migrations/0010_consentimiento_y_oraculo \
+                      migrations/0011_invitaciones; do
             echo "── aplicando $paso.sql" | tee -a /tmp/salida-sql.log
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log
@@ -165,7 +167,9 @@ jobs:
                       migrations/0005_realtime migrations/0006_rls_viajes \
                       migrations/0007_traslado_de_saldo \
                       migrations/0008_privilegios_de_funciones \
-                      migrations/0009_privilegios_por_defecto; do
+                      migrations/0009_privilegios_por_defecto \
+                      migrations/0010_consentimiento_y_oraculo \
+                      migrations/0011_invitaciones; do
             psql -v ON_ERROR_STOP=1 --single-transaction \
                  -f "supabase/$paso.sql" 2>&1 | tee -a /tmp/salida-sql.log > /dev/null
           done
@@ -337,6 +341,24 @@ jobs:
                  -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
           done
 
+      - name: Huella de los datos ANTES de 0010 y 0011
+        # Se toma aqui, con todo lo anterior ya aplicado, porque la pregunta
+        # que hay que contestar es exactamente esta: ¿mueven 0010 u 0011
+        # algun dato? Se compara despues de aplicarlas.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/112_huella_de_datos.sql > /tmp/huella-antes.txt
+          cat /tmp/huella-antes.txt | tee -a /tmp/salida-sql.log
+
+      - name: Aplicar 0010 (consentimiento y oraculo) y 0011 (invitaciones)
+        run: |
+          set -eo pipefail
+          for f in 0010_consentimiento_y_oraculo 0011_invitaciones; do
+            echo "── aplicando $f.sql" | tee -a /tmp/salida-sql.log
+            psql -v ON_ERROR_STOP=1 --single-transaction \
+                 -f "supabase/migrations/$f.sql" 2>&1 | tee -a /tmp/salida-sql.log
+          done
+
       - name: Comprobar que la aplicación de viajes sigue intacta
         run: |
           set -eo pipefail
@@ -360,6 +382,36 @@ jobs:
         run: |
           set -eo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/pruebas/101_traslado_de_saldo.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Consentimiento e invitaciones
+        # F0 (hallazgos H1 y H2) y F1 (invitaciones por enlace). Ejecuta
+        # consultas reales suplantando a seis usuarios en tres grupos: las
+        # comprobaciones de catalogo no habrian visto ni el bypass del
+        # `not exists` de 0004 ni el `update user_id` que cerro 0010.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/110_invitaciones.sql 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Dos personas aceptan la misma invitacion a la vez
+        # Necesita DOS transacciones simultaneas de verdad, asi que no puede
+        # ir en un .sql. Sin el `for update` de aceptar_invitacion, las dos
+        # entran y `usos` acaba en 2 con max_usos = 1.
+        run: |
+          set -eo pipefail
+          bash supabase/pruebas/111_aceptaciones_concurrentes.sh 2>&1 | tee -a /tmp/salida-sql.log
+
+      - name: Los datos historicos no se han movido
+        # La huella se tomo antes de aplicar las migraciones. Si algo hubiera
+        # cambiado un solo centimo, el diff lo dice.
+        run: |
+          set -eo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/pruebas/112_huella_de_datos.sql > /tmp/huella-despues.txt
+          if diff -u /tmp/huella-antes.txt /tmp/huella-despues.txt; then
+            echo "Huella identica: ni un dato ni un centimo se han movido" | tee -a /tmp/salida-sql.log
+          else
+            echo "LOS DATOS HAN CAMBIADO" | tee -a /tmp/salida-sql.log
+            exit 1
+          fi
 
       - name: Privilegios de las funciones
         # El incidente E12: `revoke ... from public` no quita la concesion
