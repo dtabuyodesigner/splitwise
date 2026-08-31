@@ -31,6 +31,7 @@ import {
 import { prepararFilaGasto } from './gastos.js';
 import { analizarCSV, construirCSV } from './csv.js';
 import { interpretarDictado } from './voice.js';
+import { construirEnlaceInvitacion, leerTokenInvitacion } from './invitaciones.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -70,6 +71,7 @@ const estado = {
     formulario: { pagador: null, reparto: 0.5, repartoLibre: 50 },
     filtro: { texto: '', personaId: null, categoria: null },
     modoAlta: false,
+    invitacionToken: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1019,6 +1021,130 @@ async function compartirBalance() {
         recado('Copiado al portapapeles');
     } catch {
         window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+    }
+}
+
+function cerrarHojaInvitacion() {
+    $('veloInvitacion').classList.add('oculto');
+}
+
+function mostrarPanelInvitacion(panel) {
+    $('panelCrearInvitacion').classList.toggle('oculto', panel !== 'crear');
+    $('panelAceptarInvitacion').classList.toggle('oculto', panel !== 'aceptar');
+}
+
+async function crearInvitacion() {
+    if (!estado.grupoActivo) {
+        recado('Elige primero un grupo');
+        return;
+    }
+    if (!online()) {
+        mostrarAviso($('avisoInvitacion'), 'Para crear una invitación hace falta conexión.');
+        return;
+    }
+
+    mostrarPanelInvitacion('crear');
+    mostrarAviso($('avisoInvitacion'), 'Creando enlace…');
+    $('botonInvitar').disabled = true;
+    try {
+        const { data, error } = await sb.rpc('crear_invitacion', {
+            p_group_id: estado.grupoActivo,
+            p_dias: 7,
+            p_max_usos: null,
+        });
+        if (error) throw error;
+        const token = Array.isArray(data) ? data[0] : data;
+        if (typeof token !== 'string') throw new Error('El servidor no devolvió el enlace.');
+        $('enlaceInvitacion').value = construirEnlaceInvitacion({
+            origin: window.location.origin,
+            pathname: window.location.pathname,
+            token,
+        });
+        mostrarAviso($('avisoInvitacion'), 'Enlace válido durante 7 días.');
+        $('veloInvitacion').classList.remove('oculto');
+    } catch (error) {
+        mostrarAviso($('avisoInvitacion'), traducirError(error));
+    } finally {
+        $('botonInvitar').disabled = false;
+    }
+}
+
+async function copiarInvitacion() {
+    const enlace = $('enlaceInvitacion').value;
+    if (!enlace) return;
+    try {
+        await navigator.clipboard.writeText(enlace);
+        recado('Enlace copiado');
+    } catch {
+        $('enlaceInvitacion').select();
+        recado('Selecciona el enlace para copiarlo');
+    }
+}
+
+async function compartirInvitacion() {
+    const enlace = $('enlaceInvitacion').value;
+    if (!enlace) return;
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: 'Invitación al grupo', text: 'Únete a mi grupo de gastos:', url: enlace });
+            return;
+        } catch (error) {
+            if (error?.name === 'AbortError') return;
+        }
+    }
+    await copiarInvitacion();
+}
+
+async function revisarInvitacionPendiente() {
+    const token = leerTokenInvitacion(window.location.search);
+    if (!token || !miId()) return;
+    if (estado.invitacionToken === token) return;
+    estado.invitacionToken = token;
+
+    const { data, error } = await sb.rpc('ver_invitacion', { p_token: token });
+    if (error) {
+        mostrarAviso($('avisoInvitacion'), traducirError(error));
+        $('veloInvitacion').classList.remove('oculto');
+        return;
+    }
+    const invitacion = Array.isArray(data) ? data[0] : data;
+    if (!invitacion || invitacion.estado !== 'valida') {
+        mostrarPanelInvitacion('aceptar');
+        $('botonAceptarInvitacion').classList.add('oculto');
+        $('detalleInvitacion').textContent = invitacion?.estado === 'ya_eras_miembro'
+            ? 'Ya perteneces a este grupo.'
+            : 'Esta invitación ya no está disponible.';
+        $('veloInvitacion').classList.remove('oculto');
+        return;
+    }
+
+    mostrarPanelInvitacion('aceptar');
+    $('botonAceptarInvitacion').classList.remove('oculto');
+    $('botonAceptarInvitacion').disabled = false;
+    $('detalleInvitacion').textContent = `${invitacion.invita || 'Alguien'} te invita al grupo «${invitacion.grupo}».`;
+    mostrarAviso($('avisoInvitacion'), '');
+    $('veloInvitacion').classList.remove('oculto');
+}
+
+async function aceptarInvitacion() {
+    const token = estado.invitacionToken;
+    if (!token) return;
+    $('botonAceptarInvitacion').disabled = true;
+    try {
+        const { data, error } = await sb.rpc('aceptar_invitacion', { p_token: token });
+        if (error) throw error;
+        const resultado = Array.isArray(data) ? data[0] : data;
+        if (!resultado || !['aceptada', 'ya_eras_miembro'].includes(resultado.resultado)) {
+            throw new Error('La invitación ya no está disponible.');
+        }
+        await refrescar();
+        fijarGrupo(resultado.grupo_id);
+        window.history.replaceState({}, '', window.location.pathname);
+        cerrarHojaInvitacion();
+        recado(resultado.resultado === 'aceptada' ? 'Te has unido al grupo' : 'Ya pertenecías al grupo');
+    } catch (error) {
+        mostrarAviso($('avisoInvitacion'), traducirError(error));
+        $('botonAceptarInvitacion').disabled = false;
     }
 }
 
@@ -2373,6 +2499,11 @@ function conectarEventos() {
     $('botonCerrarStats').addEventListener('click', () => $('veloStats').classList.add('oculto'));
 
     $('botonCompartir').addEventListener('click', compartirBalance);
+    $('botonInvitar').addEventListener('click', crearInvitacion);
+    $('botonCopiarInvitacion').addEventListener('click', copiarInvitacion);
+    $('botonCompartirInvitacion').addEventListener('click', compartirInvitacion);
+    $('botonAceptarInvitacion').addEventListener('click', aceptarInvitacion);
+    $('botonCerrarInvitacion').addEventListener('click', cerrarHojaInvitacion);
     $('botonExportar').addEventListener('click', exportarCSV);
     $('botonBackupJSON').addEventListener('click', descargarBackupJSON);
 
@@ -2451,7 +2582,7 @@ function conectarEventos() {
     });
     $('botonCerrarGrupos').addEventListener('click', () => $('veloGrupos').classList.add('oculto'));
 
-    for (const idVelo of ['veloGasto', 'veloLiquidar', 'veloGrupos', 'veloImportar', 'veloStats']) {
+    for (const idVelo of ['veloGasto', 'veloLiquidar', 'veloGrupos', 'veloImportar', 'veloStats', 'veloInvitacion']) {
         $(idVelo).addEventListener('click', (e) => {
             if (e.target.id === idVelo) $(idVelo).classList.add('oculto');
         });
@@ -2459,7 +2590,7 @@ function conectarEventos() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            for (const v of ['veloGasto', 'veloLiquidar', 'veloGrupos', 'veloImportar', 'veloStats']) {
+            for (const v of ['veloGasto', 'veloLiquidar', 'veloGrupos', 'veloImportar', 'veloStats', 'veloInvitacion']) {
                 $(v).classList.add('oculto');
             }
         } else if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey &&
@@ -2535,6 +2666,7 @@ async function entrarEnLaApp() {
     const accion = params.get('accion');
     if (accion === 'nuevo-gasto') abrirHojaGasto(null);
     else if (accion === 'saldar') abrirHojaLiquidar();
+    await revisarInvitacionPendiente();
 }
 
 function mostrarAcceso() {

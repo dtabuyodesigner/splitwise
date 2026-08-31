@@ -40,6 +40,7 @@ const ARCHIVOS = [
     './js/csv.js',
     './js/voice.js',
     './js/traslados.js',
+    './js/invitaciones.js',
     './icons/icon-192.png',
     './icons/icon-512.png',
     './icons/maskable-192.png',
