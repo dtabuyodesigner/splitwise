@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Pilar_Dani · Gastos compartidos</title>
+
+<meta name="description" content="Gastos compartidos: lo que pone cada uno y lo que queda por saldar.">
+<meta name="theme-color" content="#14201F" id="metaThemeColor">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<link rel="manifest" href="manifest.json">
+
+
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400;12..96,75..100,600;12..96,75..100,800&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body>
+
+<!-- ============================================================
+     ACCESO
+     ============================================================ -->
+<section class="acceso oculto" id="pantallaAcceso">
+    <h1 class="acceso__marca">Gastos<br>compartidos</h1>
+    <p class="acceso__pie">Lo que pone cada uno y lo que queda por saldar.</p>
+    <div class="acceso__fiel" aria-hidden="true"><span></span><span></span></div>
+
+    <p class="aviso oculto" id="avisoAcceso"></p>
+
+    <button class="boton boton--google oculto" id="botonGoogle">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.8 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.8c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7.2-10.2 7.2-17.4z"/>
+            <path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.8-6.1z"/>
+            <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.4 0-11.7-3.7-13.6-9.8l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/>
+        </svg>
+        Continuar con Google
+    </button>
+
+    <div class="separador oculto" id="separadorGoogle">o con tu correo</div>
+
+    <form id="formAcceso" autocomplete="on" novalidate>
+        <div class="campo oculto" id="campoNombre">
+            <label for="entradaNombre">Tu nombre</label>
+            <input type="text" id="entradaNombre" name="name" autocomplete="name" placeholder="Dani">
+        </div>
+
+        <div class="campo">
+            <label for="entradaCorreo">Correo</label>
+            <input type="email" id="entradaCorreo" name="username" autocomplete="username"
+                   inputmode="email" autocapitalize="off" autocorrect="off"
+                   placeholder="tucorreo@ejemplo.com">
+        </div>
+
+        <div class="campo">
+            <label for="entradaClave">Contraseña</label>
+            <input type="password" id="entradaClave" name="password"
+                   autocomplete="current-password" placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="boton" id="botonAcceder">Entrar</button>
+    </form>
+
+    <button class="boton boton--tenue" id="botonCambiarModo">Crear una cuenta</button>
+</section>
+
+<!-- ============================================================
+     APLICACIÓN
+     ============================================================ -->
+<div class="app oculto" id="pantallaApp">
+
+    <header class="saldo">
+        <div class="grupos" id="grupos"></div>
+
+        <div class="saldo__interior">
+            <div class="saldo__fila">
+                <span class="saldo__rotulo" id="saldoRotulo">Saldo del grupo</span>
+                <span class="saldo__version" id="etiquetaVersion"></span>
+                <button class="saldo__salir" id="botonSalir" title="Cerrar sesión">Salir</button>
+            </div>
+
+            <p class="saldo__cifra cifra" id="saldoCifra">0,00 €</p>
+            <p class="saldo__frase" id="saldoFrase">Cargando…</p>
+
+            <div class="fiel" id="fiel">
+                <div class="fiel__barra" id="fielBarra"></div>
+                <div class="fiel__centro"></div>
+            </div>
+            <div class="fiel__nombres">
+                <span id="fielIzquierda">—</span>
+                <span id="fielDerecha">—</span>
+            </div>
+
+            <div class="totales" id="totales">
+                <div class="total">
+                    <span class="total__cifra cifra" id="totalGrupo">0,00 €</span>
+                    <span class="total__rotulo">Total gastado</span>
+                </div>
+                <div class="total total--mio">
+                    <span class="total__cifra cifra" id="totalMio">0,00 €</span>
+                    <span class="total__rotulo" id="totalMioRotulo">Has pagado</span>
+                </div>
+                <div class="total total--suyo">
+                    <span class="total__cifra cifra" id="totalSuyo">0,00 €</span>
+                    <span class="total__rotulo" id="totalSuyoRotulo">Balance neto</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="estado oculto" id="barraEstado">
+        <span class="estado__punto"></span>
+        <span id="textoEstado"></span>
+    </div>
+
+    <button class="novedades oculto" id="barraNovedades">
+        <span class="novedades__texto" id="textoNovedades"></span>
+        <span class="novedades__cerrar">Vale</span>
+    </button>
+
+    <div class="utiles oculto" id="utiles">
+        <button class="util" id="botonStats">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            Estadísticas
+        </button>
+        <button class="util" id="botonCompartir">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Compartir
+        </button>
+        <button class="util" id="botonExportar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+        </button>
+        <button class="util" id="botonImportar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Importar CSV
+        </button>
+        <button class="util" id="botonBackupJSON">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Backup JSON
+        </button>
+    </div>
+
+    <div class="accion-invitacion oculto">
+        <button class="util util--invitar" id="botonInvitar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21a6 6 0 0 1 12 0M19 8v6M16 11h6"/></svg>
+            Invitar a este grupo
+        </button>
+    </div>
+
+    <!-- Barra de Búsqueda y Filtros -->
+    <div class="filtro-caja oculto" id="cajaFiltro">
+        <div class="filtro-busqueda">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="entradaBusqueda" placeholder="Buscar por concepto o categoría…" autocomplete="off">
+            <button class="filtro-busqueda__limpiar oculto" id="botonLimpiarBusqueda">Borrar</button>
+        </div>
+        <div class="filtro-chips" id="chipsFiltro"></div>
+        <div class="filtro-info oculto" id="infoFiltro">
+            <span id="textoInfoFiltro"></span>
+            <button class="boton--tenue" id="botonResetFiltros" style="padding:0;font-size:12px">Ver todos</button>
+        </div>
+    </div>
+
+    <main class="lista" id="lista"></main>
+
+    <div class="acciones">
+        <button class="acciones__principal" id="botonNuevoGasto">+ Añadir gasto</button>
+        <button class="acciones__secundario" id="botonLiquidar">Saldar</button>
+        <button class="acciones__secundario oculto" id="botonTrasladar">Trasladar saldo</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: GASTO
+     ============================================================ -->
+<div class="velo oculto" id="veloGasto">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloGasto">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloGasto">Nuevo gasto</h2>
+
+        <p class="aviso oculto" id="avisoGasto"></p>
+
+        <div class="dictado">
+            <input type="text" class="dictado__campo" id="entradaDictado"
+                   placeholder="23,50 cena en Liubliana pagó Pilar"
+                   aria-label="Dictar el gasto de corrido"
+                   autocapitalize="sentences" autocomplete="off">
+            <button class="dictado__micro" id="botonMicro" aria-label="Dictar" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="11" rx="3"/>
+                    <path d="M5 11a7 7 0 0 0 14 0"/>
+                    <path d="M12 18v4"/>
+                </svg>
+            </button>
+        </div>
+        <p class="dictado__pista" id="pistaDictado">
+            Di el importe, en qué fue y quién pagó. Se reparten solos.
+        </p>
+
+        <div class="importe">
+            <span class="importe__moneda">€</span>
+            <input type="text" class="importe__campo cifra" id="entradaImporte"
+                   inputmode="decimal" placeholder="0,00" aria-label="Importe">
+        </div>
+
+        <div class="campo">
+            <label for="entradaConcepto">En qué</label>
+            <input type="text" id="entradaConcepto" placeholder="Cena en Liubliana">
+        </div>
+
+        <span class="rotulo">Quién pagó</span>
+        <div class="opciones" id="opcionesPagador"></div>
+
+        <span class="rotulo">Cómo se reparte</span>
+        <div class="opciones opciones--envolver" id="opcionesReparto"></div>
+
+        <div class="pareja">
+            <div class="campo">
+                <label for="entradaCategoria">Categoría</label>
+                <select id="entradaCategoria"></select>
+            </div>
+            <div class="campo">
+                <label for="entradaFecha">Fecha</label>
+                <input type="date" id="entradaFecha">
+            </div>
+        </div>
+
+        <div class="campo">
+            <span class="rotulo">Grupo</span>
+            <p class="hoja__grupo" id="entradaGrupo"></p>
+        </div>
+
+        <button class="boton" id="botonGuardarGasto">Guardar gasto</button>
+        <button class="hoja__borrar oculto" id="botonBorrarGasto" type="button">Borrar este gasto</button>
+        <button class="boton boton--tenue" id="botonCerrarGasto" type="button">Cancelar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: LIQUIDAR / EDITAR LIQUIDACIÓN
+     ============================================================ -->
+<div class="velo oculto" id="veloTraslado">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloTraslado">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloTraslado">Trasladar saldo</h2>
+
+        <p class="aviso oculto" id="avisoTraslado"></p>
+
+        <div class="hoja__resumen" id="resumenTraslado"></div>
+
+        <div class="campo">
+            <label for="entradaDestinoTraslado">Llevar la deuda a</label>
+            <select id="entradaDestinoTraslado"></select>
+        </div>
+
+        <div class="importe">
+            <span class="importe__moneda">€</span>
+            <input type="text" class="importe__campo cifra" id="entradaImporteTraslado"
+                   inputmode="decimal" placeholder="0,00" aria-label="Importe a trasladar">
+        </div>
+        <p class="hoja__pista" id="pistaTraslado"></p>
+
+        <div class="hoja__confirmacion oculto" id="confirmacionTraslado"></div>
+
+        <div class="hoja__botones">
+            <button class="boton boton--fantasma" id="botonCancelarTraslado">Cancelar</button>
+            <button class="boton boton--principal" id="botonGuardarTraslado">Trasladar</button>
+        </div>
+    </div>
+</div>
+
+<div class="velo oculto" id="veloLiquidar">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloLiquidar">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloLiquidar">Saldar cuentas</h2>
+
+        <p class="aviso oculto" id="avisoLiquidar"></p>
+
+        <div class="hoja__resumen" id="resumenLiquidar"></div>
+
+        <div class="importe">
+            <span class="importe__moneda">€</span>
+            <input type="text" class="importe__campo cifra" id="entradaImporteLiquidar"
+                   inputmode="decimal" placeholder="0,00" aria-label="Importe a saldar">
+        </div>
+
+        <div class="campo">
+            <label for="entradaNotaLiquidar">Nota o concepto</label>
+            <input type="text" id="entradaNotaLiquidar" placeholder="Bizum / Transferencia">
+        </div>
+
+        <div class="campo">
+            <label for="entradaFechaLiquidar">Fecha del pago</label>
+            <input type="date" id="entradaFechaLiquidar">
+        </div>
+
+        <button class="boton" id="botonGuardarLiquidar">Registrar el pago</button>
+        <button class="hoja__borrar oculto" id="botonBorrarLiquidar" type="button">Borrar esta liquidación</button>
+        <button class="boton boton--tenue" id="botonCerrarLiquidar" type="button">Cancelar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: ESTADÍSTICAS Y RESUMEN
+     ============================================================ -->
+<div class="velo oculto" id="veloStats">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloStats">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloStats">Estadísticas del grupo</h2>
+
+        <div id="cuerpoStats"></div>
+
+        <button class="boton boton--tenue" id="botonCerrarStats" type="button">Cerrar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: GRUPOS
+     ============================================================ -->
+<div class="velo oculto" id="veloGrupos">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloGrupos">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloGrupos">Grupos</h2>
+
+        <p class="aviso oculto" id="avisoGrupos"></p>
+
+        <div class="campo">
+            <label for="entradaGrupoNuevo">Nombre del grupo nuevo</label>
+            <input type="text" id="entradaGrupoNuevo" placeholder="Eslovenia 2026">
+        </div>
+
+        <button class="boton" id="botonCrearGrupo">Crear grupo</button>
+
+        <span class="rotulo" style="display:block;margin:26px 0 10px">Grupos que ya tenéis</span>
+        <div id="listaGrupos"></div>
+
+        <button class="boton boton--tenue" id="botonCerrarGrupos" type="button">Cerrar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: INVITACION
+     ============================================================ -->
+<div class="velo oculto" id="veloInvitacion">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloInvitacion">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloInvitacion">Invitar al grupo</h2>
+        <p class="aviso oculto" id="avisoInvitacion"></p>
+        <div id="panelCrearInvitacion">
+            <p class="hoja__pista">Comparte este enlace con la persona que quieres añadir al grupo.</p>
+            <div class="campo">
+                <label for="enlaceInvitacion">Enlace de invitación</label>
+                <input type="text" id="enlaceInvitacion" readonly>
+            </div>
+            <button class="boton" id="botonCopiarInvitacion" type="button">Copiar enlace</button>
+            <button class="boton boton--tenue" id="botonCompartirInvitacion" type="button">Compartir enlace</button>
+        </div>
+        <div id="panelAceptarInvitacion" class="oculto">
+            <p class="hoja__pista" id="detalleInvitacion"></p>
+            <button class="boton" id="botonAceptarInvitacion" type="button">Unirme al grupo</button>
+        </div>
+        <button class="boton boton--tenue" id="botonCerrarInvitacion" type="button">Cerrar</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     HOJA: IMPORTAR CSV
+     ============================================================ -->
+<div class="velo oculto" id="veloImportar">
+    <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloImportar">
+        <div class="hoja__asa"></div>
+        <h2 class="hoja__titulo" id="tituloImportar">Importar CSV</h2>
+
+        <p class="aviso oculto" id="avisoImportar"></p>
+
+        <p class="dictado__pista" id="pistaImportar"></p>
+
+        <button class="boton boton--google" id="botonElegirArchivo" type="button">Elegir un archivo CSV</button>
+        <input type="file" id="entradaArchivo" class="oculto"
+               accept=".csv,.txt,text/csv,text/plain">
+
+        <div class="separador">o pega el contenido</div>
+
+        <div class="campo">
+            <label for="entradaTextoCSV">Contenido del CSV</label>
+            <textarea id="entradaTextoCSV" rows="5"
+                      autocapitalize="off" autocorrect="off" spellcheck="false"
+                      placeholder="Fecha;Concepto;Importe&#10;2026-07-21;Cena;23,50"></textarea>
+        </div>
+
+        <button class="boton boton--tenue" id="botonAnalizar" type="button">Analizar datos</button>
+
+        <div id="previoImportar"></div>
+
+        <button class="boton oculto" id="botonConfirmarImportar">Importar</button>
+
+        <button class="hoja__borrar oculto" id="botonDeshacerImport" type="button">
+            Borrar lo importado en este grupo
+        </button>
+
+        <button class="boton boton--tenue" id="botonCerrarImportar" type="button">Cerrar</button>
+    </div>
+</div>
+
+
+<script type="module" src="../js/app.js"></script>
+</body>
+</html>
