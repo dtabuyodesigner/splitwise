@@ -157,6 +157,26 @@ política habría dado igualmente, así que **ninguna política cambia de
 resultado**: las 41 aserciones de `98_seguridad_dml.sql` y las 19 de
 `102_validar_0007.sql` siguen pasando sin tocar una línea.
 
+### Revisión posterior · dos hallazgos más, cerrados en la misma rama
+
+- **`groups.created_by` seguía siendo mutable desde el cliente (P1).** El
+  cierre de H1 dejó el UPDATE de `group_members` por columnas, pero 0004
+  concedía UPDATE de **tabla** sobre `public.groups` y `groups_modificar`
+  deja actualizar a cualquier miembro. La misma escalada de H1 volvía por
+  otro camino: `update groups set created_by = auth.uid()` → salir del
+  grupo → reinsertarse como `owner` por la rama de alta propia. Cerrado en
+  `0010` con el mismo patrón: `revoke update on public.groups` + `grant
+  update (name)`. El frontend solo escribe `name`, así que no cambia nada de
+  lo que la app hace. Regresión ejecutable en `98_seguridad_dml.sql`
+  (`E03`–`E05`) y comprobación de catálogo en `99_comprobaciones.sql` y en
+  la propia `0010`.
+- **`estado_invitacion()` no podía ser `IMMUTABLE` (P2).** Usa `now()` para
+  decidir si una invitación está caducada, y está en el camino de
+  autorización de `ver_invitacion()` y `aceptar_invitacion()`. `IMMUTABLE`
+  autoriza al planificador a plegar el resultado; una invitación caducada
+  podría seguir viéndose «valida». Pasa a `STABLE` en `0011`, con
+  comprobación de `provolatile` en `99_comprobaciones.sql` y en `0011`.
+
 ---
 
 ## Pendientes que ha dejado F1

@@ -70,6 +70,31 @@ grant update (role) on public.group_members to authenticated;
 -- puede actualizar —solo el propietario—. Lo que añade este grant es QUÉ
 -- puede tocar. Las dos cosas se combinan: hace falta pasar las dos.
 
+-- ── H1.3 · `groups.created_by` es inmutable desde el cliente ──
+--
+-- La rama de alta propia de arriba (`miembros_apuntarme_a_mi_grupo`) se
+-- apoya en `groups.created_by = auth.uid()`: solo el creador la satisface.
+-- Pero 0004 concede UPDATE de TABLA sobre `public.groups` a `authenticated`
+-- y `groups_modificar` deja actualizar a CUALQUIER miembro, sin acotar QUÉ
+-- columnas. Eso reabría la escalada:
+--
+--   1. update public.groups set created_by = auth.uid()  → te haces «creador»
+--   2. delete de tu propia membresía  (miembros_expulsar: `user_id = auth.uid()`)
+--   3. re-insert con role = 'owner'    (rama de alta propia, que solo mira
+--                                       `created_by`, ahora tuyo)
+--
+-- Resultado: de miembro normal a propietario del grupo ajeno.
+--
+-- El arreglo es el mismo patrón que H1.2: RLS no puede expresar «y además
+-- `created_by` no cambia» —`with check` ve la fila nueva, nunca la vieja—,
+-- pero el privilegio por columnas sí, y actúa antes que RLS.
+--
+-- El frontend solo actualiza `name` (js/app.js → renombrar grupo). `id`,
+-- `created_by` y `created_at` no se tocan nunca desde el navegador, así que
+-- restringir el UPDATE a `name` no cambia nada de lo que la app hace hoy.
+revoke update on public.groups from authenticated;
+grant update (name) on public.groups to authenticated;
+
 -- ============================================================
 -- H2 · Las funciones de pertenencia dejan de ser un oráculo
 --
@@ -182,7 +207,19 @@ begin
         raise exception '0010: authenticated todavía puede reescribir user_id';
     end if;
 
-    raise notice 'H1 cerrado: solo uno mismo entra, y solo se puede actualizar «role».';
+    -- Y lo mismo para `groups`: UPDATE de columna, no de tabla, para que
+    -- `created_by` no se pueda mover (escalada de miembro a propietario).
+    if has_table_privilege('authenticated', 'public.groups', 'update') then
+        raise exception '0010: authenticated conserva UPDATE sobre toda la tabla groups';
+    end if;
+    if not has_column_privilege('authenticated', 'public.groups', 'name', 'update') then
+        raise exception '0010: authenticated ha perdido el UPDATE de groups.name';
+    end if;
+    if has_column_privilege('authenticated', 'public.groups', 'created_by', 'update') then
+        raise exception '0010: authenticated todavía puede reescribir groups.created_by';
+    end if;
+
+    raise notice 'H1 cerrado: solo uno mismo entra; en group_members solo se actualiza «role» y en groups solo «name».';
     raise notice 'H2 cerrado: es_miembro/es_owner solo responden sobre uno mismo o dentro del grupo propio.';
 end
 $comprobar$;

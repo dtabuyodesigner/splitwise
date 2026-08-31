@@ -434,6 +434,55 @@ begin
 end $$;
 
 -- ============================================================
+--  E' · `groups.created_by` es inmutable desde el cliente
+--
+--  Bruno es miembro NORMAL de "Casa", que creó Ana. Antes del arreglo de
+--  0010 (revoke update de tabla + grant update(name)) Bruno podía reescribir
+--  `created_by`, salir del grupo y reinsertarse como `owner` por la rama de
+--  alta propia: escalada de miembro a propietario. Estas aserciones fallan
+--  sin ese arreglo.
+-- ============================================================
+do $$
+declare
+    bloqueado boolean := false;
+begin
+    begin
+        update public.groups set created_by = '22222222-2222-2222-2222-222222222222'
+        where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+        bloqueado := false;
+    exception when insufficient_privilege then
+        bloqueado := true;
+    end;
+
+    perform public.afirmar('E03', bloqueado,
+        'ATAQUE: un miembro NO puede reescribir groups.created_by (escalada a propietario)');
+
+    perform public.afirmar('E04',
+        (select created_by from public.groups
+          where id = 'aaaaaaaa-0000-0000-0000-000000000001')
+        = '11111111-1111-1111-1111-111111111111',
+        'el creador de "Casa" sigue siendo Ana');
+end $$;
+
+do $$
+declare
+    tocadas integer;
+begin
+    with renombradas as (
+        update public.groups set name = 'Casa renombrada'
+        where id = 'aaaaaaaa-0000-0000-0000-000000000001'
+        returning 1
+    )
+    select count(*) into tocadas from renombradas;
+
+    perform public.afirmar('E05', tocadas = 1,
+        'lo que SÍ sigue permitido: un miembro renombra su grupo (update solo de name)');
+
+    update public.groups set name = 'Casa'
+    where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+end $$;
+
+-- ============================================================
 --  F · Invariantes del propietario
 --
 --  "Un grupo conserva al menos un propietario" no se puede expresar con RLS:

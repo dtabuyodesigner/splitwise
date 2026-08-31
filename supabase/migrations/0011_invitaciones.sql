@@ -174,11 +174,20 @@ $$;
 -- No se concede a nadie: es interna. Las dos funciones que la llaman son
 -- SECURITY DEFINER y se ejecutan como su dueño, así que pueden invocarla
 -- aunque `authenticated` no pueda.
+--
+-- STABLE, no IMMUTABLE: el `case` mira `now()` para decidir si la invitación
+-- está caducada, y `now()` es la hora de la TRANSACCIÓN —estable dentro de
+-- una consulta, distinta entre transacciones—. Declararla IMMUTABLE sería
+-- mentir al planificador, que entonces puede plegar el resultado en tiempo
+-- de planificación; como la función está en el camino de autorización de
+-- `ver_invitacion()` y `aceptar_invitacion()`, una invitación caducada
+-- podría seguir viéndose «valida». La comprobación de catálogo de abajo lo
+-- impide volver a romper.
 -- ------------------------------------------------------------
 create or replace function public.estado_invitacion(p_inv public.group_invitations)
 returns text
 language sql
-immutable
+stable
 as $$
     select case
         when p_inv.revocada_en is not null                        then 'revocada'
@@ -427,9 +436,19 @@ grant execute on function public.revocar_invitacion(uuid)                 to aut
 do $comprobar$
 declare
     n integer;
+    v_vol text;
 begin
     if to_regclass('public.group_invitations') is null then
         raise exception '0011: no existe group_invitations';
+    end if;
+
+    -- estado_invitacion() mira now(): tiene que ser STABLE, nunca IMMUTABLE.
+    select p.provolatile::text into v_vol
+      from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+     where ns.nspname = 'public' and p.proname = 'estado_invitacion';
+    if v_vol is distinct from 's' then
+        raise exception
+            '0011: estado_invitacion debe ser STABLE y su provolatile es «%»', v_vol;
     end if;
 
     if has_column_privilege('authenticated', 'public.group_invitations', 'token_hash', 'select') then

@@ -65,7 +65,7 @@ Con ella, las reglas son:
 | Tabla | Leer | Crear | Modificar | Borrar |
 |---|---|---|---|---|
 | `profiles` | El propio + quien comparta grupo | Solo el propio | Solo el propio | Nadie (cascada de `auth.users`) |
-| `groups` | Solo los grupos propios | Cualquiera (queda como `owner`) | Cualquier miembro | Solo el `owner` |
+| `groups` | Solo los grupos propios | Cualquiera (queda como `owner`) | Cualquier miembro, y **solo la columna `name`** | Solo el `owner` |
 | `group_members` | Miembros del grupo | Cualquier miembro (invitar) | — | El `owner`, o uno mismo (salirse) |
 | `expenses` | Miembros del grupo | Miembros, y el pagador también debe serlo | Miembros | Miembros |
 | `settlements` | Miembros del grupo | Miembros, y ambas partes deben serlo | Miembros | Miembros |
@@ -184,7 +184,7 @@ operación sin política es la app rota, y una política de más es una fuga.
 | `app.js:998/1002` | `delete().eq('group_id').like('client_id','imp:%')` | `gastos_borrar` / `liquidaciones_borrar` |
 | `app.js:1113` | `upsert` por lotes de la importación | `gastos_crear` + `gastos_modificar` |
 | `app.js:1221/1223` | `delete().eq('group_id')` (vaciar grupo) | `gastos_borrar` / `liquidaciones_borrar` |
-| `app.js:1274` | `groups.update({name}).select('id')` | `groups_modificar` + la de SELECT |
+| `app.js:1274` | `groups.update({name}).select('id')` | `groups_modificar` + la de SELECT + `grant update (name)` (0010: `created_by` no se puede mover) |
 | `app.js:1298` | `groups.delete().select('id')` | `groups_borrar` (solo `owner`) + la de SELECT |
 
 Dos trampas que este repaso destapó y que ya están corregidas:

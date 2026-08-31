@@ -32,7 +32,7 @@ en CI, sobre una base vacía. **No los ejecutes contra una base real.**
 
 El trabajo `esquema` del workflow de CI aplica las cinco migraciones sobre un
 **PostgreSQL 15 vacío y desechable** con un sustituto del esquema `auth`,
-comprueba el esquema resultante, ejecuta `98_seguridad_dml.sql` (32 aserciones
+comprueba el esquema resultante, ejecuta `98_seguridad_dml.sql` (44 aserciones
 suplantando usuarios reales) y reaplica las migraciones para comprobar que son
 idempotentes. El resultado se publica como comentario del PR.
 
