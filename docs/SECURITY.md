@@ -65,7 +65,7 @@ Con ella, las reglas son:
 | Tabla | Leer | Crear | Modificar | Borrar |
 |---|---|---|---|---|
 | `profiles` | El propio + quien comparta grupo | Solo el propio | Solo el propio | Nadie (cascada de `auth.users`) |
-| `groups` | Solo los grupos propios | Cualquiera (queda como `owner`) | Cualquier miembro | Solo el `owner` |
+| `groups` | Solo los grupos propios | Cualquiera (queda como `owner`) | Cualquier miembro, y **solo la columna `name`** | Solo el `owner` |
 | `group_members` | Miembros del grupo | Cualquier miembro (invitar) | — | El `owner`, o uno mismo (salirse) |
 | `expenses` | Miembros del grupo | Miembros, y el pagador también debe serlo | Miembros | Miembros |
 | `settlements` | Miembros del grupo | Miembros, y ambas partes deben serlo | Miembros | Miembros |
@@ -184,7 +184,7 @@ operación sin política es la app rota, y una política de más es una fuga.
 | `app.js:998/1002` | `delete().eq('group_id').like('client_id','imp:%')` | `gastos_borrar` / `liquidaciones_borrar` |
 | `app.js:1113` | `upsert` por lotes de la importación | `gastos_crear` + `gastos_modificar` |
 | `app.js:1221/1223` | `delete().eq('group_id')` (vaciar grupo) | `gastos_borrar` / `liquidaciones_borrar` |
-| `app.js:1274` | `groups.update({name}).select('id')` | `groups_modificar` + la de SELECT |
+| `app.js:1274` | `groups.update({name}).select('id')` | `groups_modificar` + la de SELECT + `grant update (name)` (0010: `created_by` no se puede mover) |
 | `app.js:1298` | `groups.delete().select('id')` | `groups_borrar` (solo `owner`) + la de SELECT |
 
 Dos trampas que este repaso destapó y que ya están corregidas:
@@ -269,6 +269,86 @@ valida antes de enviar, y purga de los datos de otras cuentas al entrar.
 El punto 6 queda **fuera del alcance** de esta fase: hoy la aplicación es de
 dos personas y el backfill las deja a las dos en todos los grupos. En cuanto
 haya un tercer usuario hará falta una pantalla de invitación.
+
+---
+
+## 6.bis Invitaciones por enlace
+
+Implantado en `0011_invitaciones.sql`. **Solo el servidor**: la interfaz llega
+en F2.
+
+### El enlace
+
+El token son **32 bytes aleatorios en base64url**, 43 caracteres. Se generan a
+partir de dos `gen_random_uuid()`, que en PostgreSQL 13+ es nativa y se apoya
+en `pg_strong_random()`: 244 bits de entropía. No se usa `gen_random_bytes()`
+porque es de pgcrypto, y este repositorio evita instalarla.
+
+**En la base de datos se guarda exclusivamente el SHA-256.** Quien lea la
+tabla —un volcado, un respaldo, una copia de validación— no obtiene ni un
+enlace que funcione. La columna `token_hash` ni siquiera está concedida a
+`authenticated`: el `grant select` es por columnas y la deja fuera.
+
+El token **no se deriva** del grupo ni de la persona. Del enlace no se puede
+sacar ningún UUID.
+
+Se genera en el servidor, no en el navegador, por dos razones concretas: la
+calidad del azar no depende del dispositivo de quien invita, y al crear la
+invitación el token viaja **solo en la respuesta**, nunca como parámetro de
+una consulta, así que no puede acabar en el registro de sentencias.
+
+### Qué revela un enlace en malas manos
+
+| Quien lo abre | Qué ve |
+|---|---|
+| Sin haber iniciado sesión | **Nada.** Ninguna de las funciones está concedida a `anon` |
+| Autenticado, invitación válida | Nombre del grupo, nombre de quien invita, fecha de caducidad |
+| Autenticado, caducada o revocada | **Solo el estado.** Ni siquiera de qué grupo era |
+
+`ver_invitacion()` no puede devolver el `group_id`: no es que se le olvide,
+es que **su tipo de retorno no tiene ninguna columna `uuid`**, y eso se
+comprueba contra el catálogo, no ejecutándola.
+
+Que no esté concedida a `anon` es una decisión con coste: en F2, quien abra un
+enlace tendrá que entrar o registrarse **antes** de ver a qué grupo le
+invitan. A cambio, `106_ninguna_funcion_abierta.sql` sigue siendo una regla
+absoluta y sin excepciones, que es justo lo que detuvo el incidente E12.
+
+### Aceptar
+
+`aceptar_invitacion(p_token text)` **tiene un solo argumento**. No hay ningún
+parámetro `user_id` que el cliente pueda rellenar: quien entra es `auth.uid()`
+y no puede ser nadie más. No es una comprobación que se pueda olvidar — es que
+no existe forma de expresarlo.
+
+Bloquea la fila con `for update`, así que dos aceptaciones simultáneas del
+mismo enlace se serializan; sin eso, las dos leerían `usos = 0` y las dos
+entrarían pese a un `max_usos = 1`. Está probado con dos transacciones de
+verdad en `111_aceptaciones_concurrentes.sh`, y se comprobó que la prueba
+falla si se quita el bloqueo.
+
+Quien entra por invitación es siempre **`member`**, nunca `owner`.
+
+Si ya eras miembro, no se duplica la fila, no sube el contador y se devuelve
+el grupo igual, para que la interfaz pueda llevarte allí en vez de enseñar un
+error.
+
+### Escritura
+
+Ni `anon` ni `authenticated` tienen `insert`, `update` ni `delete` sobre
+`group_invitations`, y tampoco hay políticas para esas tres operaciones: con
+RLS activa, lo que no tiene política se deniega. Crear, aceptar y revocar
+pasan **exclusivamente** por las cuatro funciones, que son `SECURITY DEFINER`
+con `search_path` fijo.
+
+Leer sí: los miembros de un grupo ven las invitaciones de **su** grupo, para
+poder revocarlas. Nadie más las ve, ni preguntando por el `group_id`.
+
+### Por defecto
+
+Siete días de caducidad y usos ilimitados hasta que se revoque. La columna
+`max_usos` existe desde el principio —`null` es «ilimitado»— para que poner un
+límite más adelante no obligue a rediseñar nada.
 
 ---
 

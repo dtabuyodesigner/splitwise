@@ -47,6 +47,8 @@ PASOS=(
     "migrations/0007_traslado_de_saldo.sql"
     "migrations/0008_privilegios_de_funciones.sql"
     "migrations/0009_privilegios_por_defecto.sql"
+    "migrations/0010_consentimiento_y_oraculo.sql"
+    "migrations/0011_invitaciones.sql"
 )
 
 echo "Migraciones a aplicar, en este orden:"

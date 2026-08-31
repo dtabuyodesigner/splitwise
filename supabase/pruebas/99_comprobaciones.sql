@@ -82,7 +82,14 @@ declare
     esperadas constant text[] := array[
         'profiles_leer', 'profiles_modificar_el_mio', 'profiles_crear_el_mio',
         'groups_leer_los_mios', 'groups_crear', 'groups_modificar', 'groups_borrar',
-        'miembros_leer', 'miembros_invitar', 'miembros_cambiar_rol', 'miembros_expulsar',
+        -- `miembros_invitar` la retiró 0010: permitía insertar CUALQUIER
+        -- user_id, o sea, meter a otra persona en tu grupo sin su
+        -- consentimiento. La sustituye `miembros_apuntarme_a_mi_grupo`, que
+        -- solo deja apuntarse a uno mismo. Entrar por invitación es
+        -- competencia exclusiva de `aceptar_invitacion()`, que es
+        -- SECURITY DEFINER y no pasa por ninguna política.
+        'miembros_leer', 'miembros_apuntarme_a_mi_grupo',
+        'miembros_cambiar_rol', 'miembros_expulsar',
         'gastos_leer', 'gastos_crear', 'gastos_modificar', 'gastos_borrar',
         'liquidaciones_leer', 'liquidaciones_crear', 'liquidaciones_modificar',
         'liquidaciones_borrar'
@@ -229,6 +236,42 @@ begin
 
     if falta is not null then
         raise exception 'Realtime no publica: %', falta;
+    end if;
+end $$;
+
+-- `groups`: el UPDATE de `authenticated` es por COLUMNA (`name`), no de tabla.
+-- Si se concediera la tabla entera, un miembro podría reescribir `created_by`
+-- y escalar a propietario por la rama de alta propia de 0010.
+do $$
+begin
+    if has_table_privilege('authenticated', 'public.groups', 'update') then
+        raise exception 'authenticated tiene UPDATE sobre toda la tabla groups; debe ser solo update(name)';
+    end if;
+    if has_column_privilege('authenticated', 'public.groups', 'created_by', 'update') then
+        raise exception 'authenticated puede reescribir groups.created_by: escalada de miembro a propietario';
+    end if;
+    if not has_column_privilege('authenticated', 'public.groups', 'name', 'update') then
+        raise exception 'authenticated ha perdido el UPDATE de groups.name: renombrar un grupo fallaría';
+    end if;
+end $$;
+
+-- `estado_invitacion()` mira `now()` para la caducidad y está en el camino de
+-- autorización de ver_invitacion()/aceptar_invitacion(). Tiene que ser STABLE:
+-- IMMUTABLE dejaría que el planificador plegara el resultado y una invitación
+-- caducada se seguiría aceptando.
+do $$
+declare
+    v_vol text;
+begin
+    select p.provolatile::text into v_vol
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'estado_invitacion';
+
+    if v_vol is null then
+        raise exception 'public.estado_invitacion no existe';
+    end if;
+    if v_vol <> 's' then
+        raise exception 'public.estado_invitacion no es STABLE (provolatile=%): usa now() y no puede ser IMMUTABLE', v_vol;
     end if;
 end $$;
 
