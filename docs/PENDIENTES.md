@@ -186,7 +186,8 @@ resultado**: las 41 aserciones de `98_seguridad_dml.sql` y las 19 de
 > `main` (merge `cc8d915`, PR #6), con CI en verde. **No se ha aplicado nada a
 > producción** ni se ha desplegado Supabase; el frontend no cambió. Siguiente
 > paso: validación en copia y aplicación controlada de `0010`+`0011` según
-> `supabase/README.md` §3 y §6.
+> `supabase/README.md` §3 y §6. Runbook específico:
+> [`RUNBOOK-PRODUCCION-0010-0011.md`](RUNBOOK-PRODUCCION-0010-0011.md).
 
 ### 18. Cualquier MIEMBRO puede generar una invitación, no solo el propietario
 
