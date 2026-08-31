@@ -539,6 +539,25 @@ button { cursor: pointer; border: none; background: none; }
 }
 .util:active { color: var(--basalto); border-color: var(--basalto); }
 
+.accion-invitacion {
+    padding: 12px 20px 0;
+}
+
+.util--invitar {
+    width: 100%;
+    justify-content: center;
+    background: var(--buganvilla);
+    border-color: var(--buganvilla);
+    color: #fff;
+    padding: 11px 16px;
+}
+
+.util--invitar:active {
+    background: var(--basalto);
+    border-color: var(--basalto);
+    color: #fff;
+}
+
 /* Barra de Búsqueda y Filtros */
 .filtro-caja {
     padding: 14px 20px 0;

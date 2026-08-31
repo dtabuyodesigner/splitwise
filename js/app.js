@@ -464,6 +464,7 @@ function pintar() {
     pintarNovedades();
     const tieneGrupo = Boolean(grupo(estado.grupoActivo));
     $('utiles').classList.toggle('oculto', !tieneGrupo);
+    $('botonInvitar').parentElement.classList.toggle('oculto', !tieneGrupo);
 
     // «Trasladar saldo» solo aparece cuando de verdad se puede: hay deuda en
     // este grupo Y existe otro grupo con las mismas dos personas. Enseñar el
