@@ -4,12 +4,12 @@
 //  desde Node para las pruebas.
 // ============================================================
 
-export const SUPABASE_URL = 'https://cmkzcvfjgrgxwqjimtxa.supabase.co';
+export const SUPABASE_URL = 'https://wspcrnqdoucohattians.supabase.co';
 
 // La clave `anon` es pública por diseño: viaja en cualquier cliente web.
 // Lo que protege los datos es RLS en el servidor, no el secreto de esta clave.
 // Ver docs/SECURITY.md.
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNta3pjdmZqZ3JneHdxamltdHhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NzU5NzAsImV4cCI6MjEwMDM1MTk3MH0.epSiwj0MO9WWfqETVoEt2E_ijNSzi4x0d-TmgDhAWhQ';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzcGNybnFkb3Vjb2hhdHRpYW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5OTQ3OTIsImV4cCI6MjEwMzU3MDc5Mn0.le9etS045WQzV3LKNG5IUWLiA3pcKkAtrX-iG5MGknw';
 
 export const LOCALE = 'es-ES';
 export const CURRENCY = 'EUR';
